@@ -42,8 +42,8 @@ jobs:
 
             let type = null;
             if (isPR) {
-              const m = item.title.match(/^(\w+): /);
-              if (m && types.includes(m[1])) type = m[1];
+              const m = item.title.match(/^\[(\w+)\] /);
+              if (m && types.includes(m[1].toLowerCase())) type = m[1].toLowerCase();
             } else if (/^\[Feat\]/.test(item.title)) {
               type = 'feat';
             } else if (/^\[Fix\]/.test(item.title)) {
