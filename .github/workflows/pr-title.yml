@@ -1,0 +1,20 @@
+name: PR Title
+
+on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$TITLE" > title.txt
+          sh .github/scripts/check-commit-msg.sh title.txt
