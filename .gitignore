@@ -1,0 +1,9 @@
+# Environment variables
+.env
+
+# Experiment data and results
+data/samples/original_text.xlsx
+experiments/**/results/
+
+# Python
+__pycache__/
