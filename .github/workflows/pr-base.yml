@@ -1,0 +1,23 @@
+name: PR Base
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-base:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_REF" = "dev" ]; then
+            exit 0
+          fi
+          echo "main 브랜치에는 dev 브랜치만 병합할 수 있습니다. (현재: $HEAD_REF)"
+          echo "PR 상단의 base 브랜치를 dev로 변경해주세요."
+          exit 1
