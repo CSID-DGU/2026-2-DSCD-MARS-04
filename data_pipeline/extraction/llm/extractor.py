@@ -58,9 +58,7 @@ def validate_selected_ids(
     if len(selected_ids) != len(set(selected_ids)):
         raise ValueError(f"중복된 문장 ID가 있습니다: {selected_ids}")
 
-    invalid_ids = [
-        sentence_id for sentence_id in selected_ids if sentence_id not in valid_ids
-    ]
+    invalid_ids = [sentence_id for sentence_id in selected_ids if sentence_id not in valid_ids]
 
     if invalid_ids:
         raise ValueError(f"존재하지 않는 문장 ID입니다: {invalid_ids}")

@@ -23,8 +23,7 @@ def summarize_key_sentences(
     ]
 
     formatted_sentences = "\n".join(
-        f"[{sentence['sentence_id']}] {sentence['text']}"
-        for sentence in selected_sentences
+        f"[{sentence['sentence_id']}] {sentence['text']}" for sentence in selected_sentences
     )
 
     prompt = f"""
