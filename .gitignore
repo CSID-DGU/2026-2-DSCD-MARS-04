@@ -1,7 +1,13 @@
+# Environment variables
 .env
 .env.*
 !.env.example
 
+# Experiment data and results
+data/samples/original_text.xlsx
+experiments/**/results/
+
+# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -11,11 +17,13 @@ venv/
 .ipynb_checkpoints/
 *.egg-info/
 
+# Frontend
 node_modules/
 frontend/dist/
 frontend/build/
 coverage/
 
+# IDE and system files
 .DS_Store
 .idea/
 .vscode/
