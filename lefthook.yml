@@ -1,0 +1,4 @@
+commit-msg:
+  commands:
+    check-type:
+      run: sh .github/scripts/check-commit-msg.sh {1}
