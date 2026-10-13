@@ -3,7 +3,6 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
-
 load_dotenv()
 
 client = OpenAI()
@@ -11,8 +10,7 @@ client = OpenAI()
 
 def extract_key_sentences(sentences: list[dict]) -> list[str]:
     formatted_sentences = "\n".join(
-        f"[{sentence['sentence_id']}] {sentence['text']}"
-        for sentence in sentences
+        f"[{sentence['sentence_id']}] {sentence['text']}" for sentence in sentences
     )
 
     prompt = f"""
@@ -52,28 +50,17 @@ def validate_selected_ids(
     sentences: list[dict],
     selected_ids: list[str],
 ) -> None:
-    valid_ids = {
-        sentence["sentence_id"]
-        for sentence in sentences
-    }
+    valid_ids = {sentence["sentence_id"] for sentence in sentences}
 
     if not 3 <= len(selected_ids) <= 5:
-        raise ValueError(
-            f"핵심 문장은 3~5개여야 합니다: {selected_ids}"
-        )
+        raise ValueError(f"핵심 문장은 3~5개여야 합니다: {selected_ids}")
 
     if len(selected_ids) != len(set(selected_ids)):
-        raise ValueError(
-            f"중복된 문장 ID가 있습니다: {selected_ids}"
-        )
+        raise ValueError(f"중복된 문장 ID가 있습니다: {selected_ids}")
 
     invalid_ids = [
-        sentence_id
-        for sentence_id in selected_ids
-        if sentence_id not in valid_ids
+        sentence_id for sentence_id in selected_ids if sentence_id not in valid_ids
     ]
 
     if invalid_ids:
-        raise ValueError(
-            f"존재하지 않는 문장 ID입니다: {invalid_ids}"
-        )
+        raise ValueError(f"존재하지 않는 문장 ID입니다: {invalid_ids}")

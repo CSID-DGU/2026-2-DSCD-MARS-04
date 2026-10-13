@@ -3,7 +3,6 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
-
 load_dotenv()
 
 client = OpenAI()
@@ -13,10 +12,7 @@ def summarize_key_sentences(
     sentences: list[dict],
     selected_ids: list[str],
 ) -> list[dict]:
-    sentence_map = {
-        sentence["sentence_id"]: sentence["text"]
-        for sentence in sentences
-    }
+    sentence_map = {sentence["sentence_id"]: sentence["text"] for sentence in sentences}
 
     selected_sentences = [
         {
@@ -77,25 +73,16 @@ def validate_summaries(
     selected_ids: list[str],
     summaries: list[dict],
 ) -> None:
-    returned_ids = [
-        item["sentence_id"]
-        for item in summaries
-    ]
+    returned_ids = [item["sentence_id"] for item in summaries]
 
     if len(summaries) != len(selected_ids):
-        raise ValueError(
-            "선택한 문장 수와 요약문 수가 다릅니다."
-        )
+        raise ValueError("선택한 문장 수와 요약문 수가 다릅니다.")
 
     if set(returned_ids) != set(selected_ids):
-        raise ValueError(
-            f"요약문 ID가 선택된 ID와 다릅니다: {returned_ids}"
-        )
+        raise ValueError(f"요약문 ID가 선택된 ID와 다릅니다: {returned_ids}")
 
     for item in summaries:
         summary = item.get("summary", "")
 
         if not isinstance(summary, str) or not summary.strip():
-            raise ValueError(
-                f"빈 요약문이 있습니다: {item}"
-            )
+            raise ValueError(f"빈 요약문이 있습니다: {item}")

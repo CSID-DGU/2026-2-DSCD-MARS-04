@@ -3,7 +3,6 @@ import json
 from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
-
 FILE_PATH = "/Users/parksooyeon/Downloads/original_text.xlsx"
 
 

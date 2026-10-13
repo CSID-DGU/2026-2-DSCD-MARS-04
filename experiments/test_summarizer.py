@@ -5,7 +5,6 @@ from data_pipeline.extraction.llm.extractor import extract_key_sentences
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 from data_pipeline.extraction.llm.summarizer import summarize_key_sentences
 
-
 FILE_PATH = "/Users/parksooyeon/Downloads/original_text.xlsx"
 
 
@@ -22,22 +21,15 @@ def main():
         selected_ids=selected_ids,
     )
 
-    sentence_map = {
-        sentence["sentence_id"]: sentence["text"]
-        for sentence in sentences
-    }
+    sentence_map = {sentence["sentence_id"]: sentence["text"] for sentence in sentences}
 
     result = {
         "document_id": article["document_id"],
         "key_sentences": [
             {
                 "key_id": f"K{index}",
-                "source_sentence_ids": [
-                    item["sentence_id"]
-                ],
-                "original_text": sentence_map[
-                    item["sentence_id"]
-                ],
+                "source_sentence_ids": [item["sentence_id"]],
+                "original_text": sentence_map[item["sentence_id"]],
                 "summary": item["summary"],
             }
             for index, item in enumerate(

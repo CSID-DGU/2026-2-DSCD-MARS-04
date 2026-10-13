@@ -4,7 +4,6 @@ from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.extractor import extract_key_sentences
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
-
 FILE_PATH = "/Users/parksooyeon/Downloads/original_text.xlsx"
 
 
@@ -15,10 +14,7 @@ def main():
     sentences = split_sentences(article["source_text"])
     selected_ids = extract_key_sentences(sentences)
 
-    sentence_map = {
-        sentence["sentence_id"]: sentence["text"]
-        for sentence in sentences
-    }
+    sentence_map = {sentence["sentence_id"]: sentence["text"] for sentence in sentences}
 
     result = {
         "document_id": article["document_id"],
