@@ -8,7 +8,7 @@ STRAIGHT_QUOTES = ['"', "'"]
 BOUNDARY_PATTERN = re.compile(rf"{SENTENCE_END}[{re.escape(CLOSERS)}]*(?=\s+)")
 NO_SPLIT_PATTERN = re.compile(
     r"(?:\b[A-Z]\.|\b(?:Mr|Mrs|Ms|Dr|Prof|St|Jr|Sr|vs|etc|No)\.|(?:^|\s)\d{1,2}\.)$"
-) # 영문 약어(U.S., Dr.)와 목록 번호(1.)에서는 자르지 않는다.
+)  # 영문 약어(U.S., Dr.)와 목록 번호(1.)에서는 자르지 않는다.
 
 
 def _quotes_balanced(line: str) -> bool:
@@ -62,4 +62,6 @@ def split_sentences(text: str) -> list[dict]:
         }
         for index, sentence in enumerate(sentences, start=1)
     ]
+
+
 # ex) {"sentence_id" : "S1", 'text': "..."}
