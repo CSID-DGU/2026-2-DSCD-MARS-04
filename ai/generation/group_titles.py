@@ -36,9 +36,7 @@ class GroupTitlesInput(BaseModel):
         for group in self.groups:
             if not group.group_id.strip() or not group.summary.strip():
                 raise ValueError("group_id와 summary는 비어 있을 수 없습니다.")
-            if not group.sentence_ids or any(
-                not sid.strip() for sid in group.sentence_ids
-            ):
+            if not group.sentence_ids or any(not sid.strip() for sid in group.sentence_ids):
                 raise ValueError("비어 있지 않은 sentence_ids가 필요합니다.")
         return self
 
@@ -56,9 +54,7 @@ def validate_output(source: GroupTitlesInput, result: GroupTitlesOutput) -> None
     expected = [group.group_id for group in source.groups]
     actual = [group.group_id for group in result.group_presentations]
     if actual != expected:
-        raise ValueError(
-            f"출력 그룹 ID·순서·개수가 입력과 다릅니다: {actual} != {expected}"
-        )
+        raise ValueError(f"출력 그룹 ID·순서·개수가 입력과 다릅니다: {actual} != {expected}")
     for group in result.group_presentations:
         if not group.topic.strip() or not group.headline.strip():
             raise ValueError(f"빈 topic 또는 headline: {group.group_id}")
@@ -82,9 +78,7 @@ def _generate_group_titles(
     if not prompt:
         raise ValueError("제목 생성 프롬프트가 비어 있습니다.")
     load_dotenv(ROOT / ".env")
-    selected_model = (
-        model if model is not None else os.getenv("GENERATION_MODEL", "gpt-4.1-mini")
-    )
+    selected_model = model if model is not None else os.getenv("GENERATION_MODEL", "gpt-4.1-mini")
     record["model"] = selected_model
     if not selected_model.strip():
         raise ValueError("GENERATION_MODEL은 비어 있을 수 없습니다.")
@@ -109,9 +103,7 @@ def _generate_group_titles(
     for item in response.output:
         for content in getattr(item, "content", []):
             if content.type == "refusal":
-                raise RuntimeError(
-                    f"모델이 제목 생성을 거부했습니다: {content.refusal}"
-                )
+                raise RuntimeError(f"모델이 제목 생성을 거부했습니다: {content.refusal}")
     if response.output_parsed is None:
         raise RuntimeError("스키마에 맞는 제목 생성 결과가 없습니다.")
     result = GroupTitlesOutput.model_validate(response.output_parsed, strict=True)
@@ -164,11 +156,7 @@ def generate_group_titles(
             destination = (
                 Path(log_path)
                 if log_path is not None
-                else Path(
-                    os.getenv(
-                        "GENERATION_LOG_PATH", str(ROOT / "logs/group_titles.jsonl")
-                    )
-                )
+                else Path(os.getenv("GENERATION_LOG_PATH", str(ROOT / "logs/group_titles.jsonl")))
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
             with destination.open("a", encoding="utf-8") as stream:

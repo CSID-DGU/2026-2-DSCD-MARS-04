@@ -97,11 +97,7 @@ def test_invalid_input_before_api(sample, change):
         (
             "completed",
             None,
-            [
-                SimpleNamespace(
-                    content=[SimpleNamespace(type="refusal", refusal="거부")]
-                )
-            ],
+            [SimpleNamespace(content=[SimpleNamespace(type="refusal", refusal="거부")])],
         ),
     ],
 )
@@ -179,8 +175,6 @@ def test_failure_log_and_original_exception(sample, tmp_path, failure):
 
 
 def test_log_write_failure_does_not_replace_result(sample, tmp_path, capsys):
-    result = generate_group_titles(
-        sample, client=fake_client(sample), log_path=tmp_path
-    )
+    result = generate_group_titles(sample, client=fake_client(sample), log_path=tmp_path)
     assert result.document_id == "news_001"
     assert "로그 파일" in capsys.readouterr().err
