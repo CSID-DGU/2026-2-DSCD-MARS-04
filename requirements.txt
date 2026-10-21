@@ -2,3 +2,4 @@ openai
 python-dotenv
 pandas
 openpyxl
+pydantic>=2,<3
