@@ -28,3 +28,6 @@ coverage/
 .idea/
 .vscode/
 *.log
+
+# Generation run logs
+logs/
