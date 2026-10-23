@@ -1,8 +1,9 @@
 from typing import Literal
+
 from pydantic import BaseModel
 
-from data_pipeline.schemas.group import Group, Sentence
 from data_pipeline.schemas.card import Card
+from data_pipeline.schemas.group import Group, Sentence
 
 
 # ① 완전성 검사 입력

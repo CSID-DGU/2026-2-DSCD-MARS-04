@@ -1,4 +1,5 @@
 from typing import Literal
+
 from pydantic import BaseModel
 
 from data_pipeline.schemas.card import Card
