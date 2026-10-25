@@ -145,11 +145,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="기사 하나를 분석해 GroupAnalysis JSON을 만든다")
     parser.add_argument("--file", default="data/samples/original_text.xlsx")
     parser.add_argument("--index", type=int, default=0, help="몇 번째 기사 (0부터)")
+    parser.add_argument("--output", type=Path, help="결과를 저장할 JSON 파일 경로")
     args = parser.parse_args()
 
     article = load_articles(args.file, limit=args.index + 1)[args.index]
     result = analyze(article["document_id"], article["source_text"])
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    text = json.dumps(result, ensure_ascii=False, indent=2)
+    print(text)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+        print(f"\n저장: {args.output}")
 
 
 if __name__ == "__main__":
