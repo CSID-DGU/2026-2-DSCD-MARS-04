@@ -14,6 +14,7 @@ from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 ROOT = Path(__file__).resolve().parents[2]
 PROMPT_PATH = Path(__file__).with_name("prompts") / "grouping.md"
 DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_TEMPERATURE = 0
 MAX_GROUPS = 10
 
 
@@ -95,7 +96,7 @@ def call_grouping(
             {"role": "user", "content": user_input},
         ],
         text_format=GroupingResult,
-        temperature=0,
+        temperature=DEFAULT_TEMPERATURE,
     )
     latency = time.perf_counter() - started
 
@@ -105,6 +106,7 @@ def call_grouping(
     return {
         "groups": [group.model_dump() for group in response.output_parsed.groups],
         "model": model,
+        "response_model": getattr(response, "model", None),
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
         "latency_seconds": round(latency, 2),
@@ -124,12 +126,12 @@ def group_sentences(
     calls = []
     errors: list[str] = []
 
-    for _ in range(max_retries + 1):
+    for attempt in range(1, max_retries + 2):
         result = call_grouping(
             sentences, max_groups, previous_errors=errors, model=model, client=client
         )
-        calls.append(result)
         errors = validate_grouping(sentence_ids, result["groups"])
+        calls.append({"attempt": attempt, **result, "errors": errors})
         if not errors:
             break
 
@@ -145,9 +147,14 @@ def group_sentences(
         "attempts": len(calls),
         "over_max_groups": len(groups) > max_groups,
         "model": calls[-1]["model"],
+        "response_model": calls[-1]["response_model"],
+        "max_groups": max_groups,
+        "max_retries": max_retries,
+        "temperature": DEFAULT_TEMPERATURE,
         "input_tokens": sum(call["input_tokens"] for call in calls),
         "output_tokens": sum(call["output_tokens"] for call in calls),
         "latency_seconds": round(sum(call["latency_seconds"] for call in calls), 2),
+        "calls": calls,
     }
 
 
@@ -168,6 +175,7 @@ def main() -> None:
     print(f"\n문장 {len(sentences)}개, 그룹 상한 {max_groups}개\n")
 
     result = group_sentences(sentences, max_groups, model=args.model)
+    result.pop("calls")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

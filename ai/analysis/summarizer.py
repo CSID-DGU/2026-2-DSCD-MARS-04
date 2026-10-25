@@ -9,12 +9,11 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ai.analysis.grouper import DEFAULT_MODEL, ROOT, group_sentences
+from ai.analysis.grouper import DEFAULT_MODEL, DEFAULT_TEMPERATURE, ROOT, group_sentences
 from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
 PROMPT_PATH = Path(__file__).with_name("prompts") / "summary.md"
-DEFAULT_TEMPERATURE = 0
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 
 
@@ -80,6 +79,7 @@ def call_summary(
     return {
         "summaries": [item.model_dump() for item in response.output_parsed.summaries],
         "model": model,
+        "response_model": getattr(response, "model", None),
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
         "latency_seconds": round(latency, 2),
@@ -132,22 +132,30 @@ def summarize_groups(
 ) -> dict:
     """요약하고 검사한다. 걸린 그룹만 다시 요청하고, 그래도 안 되면 원문 문장으로 대체한다."""
     text = {s["sentence_id"]: s["text"] for s in sentences}
-    calls = [call_summary(sentences, groups, model=model, client=client)]
-    summaries = {item["group_id"]: item["summary"] for item in calls[0]["summaries"]}
+    first = call_summary(sentences, groups, model=model, client=client)
+    summaries = {item["group_id"]: item["summary"] for item in first["summaries"]}
     errors = check_summaries(sentences, groups, summaries)
+    group_ids = [g["group_id"] for g in groups]
+    calls = [{"attempt": 1, "group_ids": group_ids, **first, "errors": errors}]
     retried = list(errors)
 
-    for _ in range(max_retries):
+    for attempt in range(2, max_retries + 2):
         if not errors:
             break
         failed = [g for g in groups if g["group_id"] in errors]
-        calls.append(
-            call_summary(sentences, failed, previous_errors=errors, model=model, client=client)
-        )
-        for item in calls[-1]["summaries"]:
+        result = call_summary(sentences, failed, previous_errors=errors, model=model, client=client)
+        for item in result["summaries"]:
             if item["group_id"] in errors:
                 summaries[item["group_id"]] = item["summary"]
         errors = check_summaries(sentences, failed, summaries)
+        calls.append(
+            {
+                "attempt": attempt,
+                "group_ids": [g["group_id"] for g in failed],
+                **result,
+                "errors": errors,
+            }
+        )
 
     for group_id in errors:
         group = next(g for g in groups if g["group_id"] == group_id)
@@ -160,9 +168,13 @@ def summarize_groups(
         "fallback_reasons": errors,
         "attempts": len(calls),
         "model": calls[-1]["model"],
+        "response_model": calls[-1]["response_model"],
+        "max_retries": max_retries,
+        "temperature": DEFAULT_TEMPERATURE,
         "input_tokens": sum(c["input_tokens"] for c in calls),
         "output_tokens": sum(c["output_tokens"] for c in calls),
         "latency_seconds": round(sum(c["latency_seconds"] for c in calls), 2),
+        "calls": calls,
     }
 
 
