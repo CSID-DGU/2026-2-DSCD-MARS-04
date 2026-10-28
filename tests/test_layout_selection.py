@@ -32,9 +32,14 @@ groups = [
     ),
 ]
 
-result = select_layouts(
-    document_id="news_001",
-    groups=groups,
-)
 
-print(result.model_dump_json(indent=2))
+def main():
+    result = select_layouts(
+        document_id="news_001",
+        groups=groups,
+    )
+    print(result.model_dump_json(indent=2))
+
+
+if __name__ == "__main__":
+    main()
