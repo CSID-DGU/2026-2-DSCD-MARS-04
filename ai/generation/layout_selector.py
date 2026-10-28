@@ -38,19 +38,13 @@ def validate_layout_selections(
     actual_ids = [item.group_id for item in result.layout_selections]
 
     if actual_ids != expected_ids:
-        raise ValueError(
-            "레이아웃 선택 결과의 그룹 ID 또는 순서가 일치하지 않습니다."
-        )
+        raise ValueError("레이아웃 선택 결과의 그룹 ID 또는 순서가 일치하지 않습니다.")
 
-    valid_layout_ids = {
-        layout.layout_id for layout in request.available_layouts
-    }
+    valid_layout_ids = {layout.layout_id for layout in request.available_layouts}
 
     for item in result.layout_selections:
         if item.layout_id not in valid_layout_ids:
-            raise ValueError(
-                f"허용되지 않은 레이아웃입니다: {item.layout_id}"
-            )
+            raise ValueError(f"허용되지 않은 레이아웃입니다: {item.layout_id}")
 
 
 def select_layouts(
@@ -91,10 +85,7 @@ def select_layouts(
         if len(group_ids) != len(set(group_ids)):
             raise ValueError("중복된 그룹 ID가 존재합니다.")
 
-        if any(
-            not group.group_id.strip() or not group.summary.strip()
-            for group in groups
-        ):
+        if any(not group.group_id.strip() or not group.summary.strip() for group in groups):
             raise ValueError("그룹 ID와 summary는 비어 있을 수 없습니다.")
 
         # 2. 레이아웃 정의 불러오기
@@ -114,18 +105,12 @@ def select_layouts(
         if not prompt:
             raise ValueError("레이아웃 선택 프롬프트가 비어 있습니다.")
 
-        record["prompt_sha256"] = hashlib.sha256(
-            prompt.encode("utf-8")
-        ).hexdigest()
+        record["prompt_sha256"] = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
         # 4. API 설정
         load_dotenv(ROOT_DIR / ".env")
 
-        selected_model = (
-            model
-            if model is not None
-            else os.getenv("LAYOUT_SELECTION_MODEL", MODEL)
-        )
+        selected_model = model if model is not None else os.getenv("LAYOUT_SELECTION_MODEL", MODEL)
 
         if not selected_model.strip():
             raise ValueError("레이아웃 선택 모델이 비어 있습니다.")
@@ -169,9 +154,7 @@ def select_layouts(
         record["stage"] = "output_validation"
 
         if response.status != "completed":
-            raise RuntimeError(
-                f"레이아웃 선택 응답이 완료되지 않았습니다: {response.status}"
-            )
+            raise RuntimeError(f"레이아웃 선택 응답이 완료되지 않았습니다: {response.status}")
 
         for item in response.output:
             for content in getattr(item, "content", []):
@@ -200,16 +183,10 @@ def select_layouts(
     finally:
         # 8. 성공/실패 여부와 관계없이 실행 로그 저장
         record["finished_at"] = datetime.now(UTC).isoformat()
-        record["elapsed_seconds"] = round(
-            time.perf_counter() - started, 3
-        )
+        record["elapsed_seconds"] = round(time.perf_counter() - started, 3)
 
         try:
-            destination = (
-                Path(log_path)
-                if log_path is not None
-                else DEFAULT_LOG_PATH
-            )
+            destination = Path(log_path) if log_path is not None else DEFAULT_LOG_PATH
 
             destination.parent.mkdir(
                 parents=True,
@@ -217,9 +194,7 @@ def select_layouts(
             )
 
             with destination.open("a", encoding="utf-8") as file:
-                file.write(
-                    json.dumps(record, ensure_ascii=False) + "\n"
-                )
+                file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         except OSError:
             print(
