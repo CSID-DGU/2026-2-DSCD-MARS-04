@@ -1,5 +1,7 @@
 from typing import Any
+
 from pydantic import BaseModel, Field
+
 from data_pipeline.schemas.group import Group
 
 

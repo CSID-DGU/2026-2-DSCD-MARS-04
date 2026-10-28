@@ -1,7 +1,5 @@
-
 from ai.generation.layout_selector import select_layouts
 from data_pipeline.schemas.group import Group
-
 
 groups = [
     Group(
@@ -14,10 +12,7 @@ groups = [
     Group(
         group_id="G2",
         sentence_ids=["S2"],
-        summary=(
-            "지원 대상은 만 19세 이상 34세 이하이며, "
-            "소득 기준을 충족해야 한다."
-        ),
+        summary=("지원 대상은 만 19세 이상 34세 이하이며, 소득 기준을 충족해야 한다."),
         topic="지원 대상",
         headline="나이와 소득 기준 충족 필요",
     ),
