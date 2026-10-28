@@ -1,0 +1,137 @@
+{
+  "version": "2026-10-23-draft4",
+  "status": "첫 완성본용 기준값. 확정 아님.",
+  "card_count": {
+    "rule": "표지 1장 + 선택한 그룹마다 1~2장 + 마무리 1장",
+    "cover_cards": 1,
+    "closing_cards": 1,
+    "cards_per_group": {
+      "min": 1,
+      "max": 2
+    },
+    "merge_groups": false
+  },
+  "first_layout": "cover",
+  "last_layout": "closing",
+  "group_layouts": ["body", "compare", "checklist", "steps"],
+  "common_fields": {
+    "id": "카드 ID. C1, C2 … 순서대로",
+    "layout": "layouts에 있는 6종 중 하나",
+    "group_id": "이 카드가 다루는 그룹 ID 1개. cover와 closing은 null",
+    "sids": "이 카드 문구의 근거 원문 문장 ID 목록. 1개 이상. group_id가 있으면 그 그룹의 문장만",
+    "image_query": "영어 2~4단어 사진 검색어. 사람 얼굴 클로즈업·로고는 피함"
+  },
+  "layouts": {
+    "cover": {
+      "name": "표지",
+      "when": "맨 앞 1장",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 28,
+          "max_newlines": 1
+        },
+        "category": {
+          "type": "text",
+          "max_chars": 10
+        }
+      }
+    },
+    "body": {
+      "name": "본문",
+      "when": "한 가지 정보를 문장으로 설명할 때",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 24
+        },
+        "body": {
+          "type": "text",
+          "max_chars": 110
+        }
+      }
+    },
+    "compare": {
+      "name": "비교",
+      "when": "원문에 기존/변경, A/B 비교가 실제로 있을 때만. 비교를 새로 만들지 않음",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 24
+        },
+        "left": {
+          "type": "pair",
+          "label_max_chars": 10,
+          "value_max_chars": 40
+        },
+        "right": {
+          "type": "pair",
+          "label_max_chars": 10,
+          "value_max_chars": 40
+        }
+      }
+    },
+    "checklist": {
+      "name": "체크리스트",
+      "when": "원문에 요건·조건이 나열돼 있을 때",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 24
+        },
+        "items": {
+          "type": "list",
+          "min_items": 2,
+          "max_items": 6,
+          "item_max_chars": 34,
+          "note": "항목 수·순서·문구는 원문을 따른다. 원문 항목을 합치거나 빼거나 새로 만들지 않는다. 한 카드에 최대 6개. 원문 항목이 7개 이상이면 같은 그룹 카드 2장으로 고르게 나눈다(예: 7개 → 4+3). 원문 항목이 1개면 이 레이아웃 대신 body"
+        }
+      }
+    },
+    "steps": {
+      "name": "단계",
+      "when": "신청 절차처럼 원문에 순서가 있을 때만",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 24
+        },
+        "items": {
+          "type": "list",
+          "min_items": 2,
+          "max_items": 6,
+          "item_max_chars": 34,
+          "note": "원문 순서대로. 항목 수·순서·문구는 원문을 따른다. 원문 항목을 합치거나 빼거나 새로 만들지 않는다. 한 카드에 최대 6개. 원문 항목이 7개 이상이면 같은 그룹 카드 2장으로 고르게 나눈다(예: 7개 → 4+3). 원문 항목이 1개면 이 레이아웃 대신 body"
+        }
+      }
+    },
+    "closing": {
+      "name": "마무리",
+      "when": "맨 끝 1장. 문의처나 신청 경로",
+      "fields": {
+        "title": {
+          "type": "text",
+          "max_chars": 20
+        },
+        "body": {
+          "type": "text",
+          "max_chars": 60
+        },
+        "cta": {
+          "type": "text",
+          "max_chars": 20
+        }
+      }
+    }
+  },
+  "accuracy_rules": [
+    "숫자, 날짜, 대상 조건, 예외, 한정어(최대·이하·최장 등), 원문 서술어의 강도(할 수 없다/해야 한다)를 바꾸지 않는다.",
+    "원문에 없는 사실·평가·연락처·링크를 더하지 않는다. 말투만 카드뉴스답게 다듬는다.",
+    "선택된 그룹의 내용만 쓴다."
+  ],
+  "temporary_values": {
+    "compare.label_max_chars": "10자.",
+    "compare.value_max_chars": "40자.",
+    "items.max_items": "checklist 6개·steps 7개"
+  }
+}
