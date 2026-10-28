@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-
+from typing import Any
+from pydantic import BaseModel, Field
 from data_pipeline.schemas.group import Group
 
 
@@ -7,9 +7,7 @@ from data_pipeline.schemas.group import Group
 class LayoutOption(BaseModel):
     layout_id: str
     description: str
-    # 추후 결과값에 반영할 수 있도록 레이아웃별 제약 조건을 정의할 수 있음
-    # max_items: int | None = None
-    # max_chars_per_item: int | None = None
+    fields: dict[str, Any] = Field(default_factory=dict)
 
 
 # 레이아웃 선택 입력
