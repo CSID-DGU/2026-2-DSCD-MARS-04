@@ -7,7 +7,7 @@ import pytest
 
 from ai.analysis import agent
 from ai.analysis.agent import analyze, estimate_cost
-from ai.analysis.grouper import GroupingResult, group_sentences, order_groups, validate_grouping
+from ai.analysis.grouper import GroupingResult, check_grouping, group_sentences, order_groups
 from ai.analysis.summarizer import SummaryResult, find_missing_numbers, summarize_groups
 from data_pipeline.schemas.group import GroupAnalysis
 
@@ -70,7 +70,8 @@ def requested(client, text_format) -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def isolate_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("ANALYSIS_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("GROUPING_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("SUMMARY_MODEL", "gpt-6-luna")
     monkeypatch.setenv("ANALYSIS_LOG_PATH", str(tmp_path / "analysis.jsonl"))
     monkeypatch.setattr(agent, "split_sentences", lambda text: SENTENCES if text else [])
 
@@ -95,13 +96,13 @@ def isolate_env(tmp_path, monkeypatch):
     ],
     ids=["missing", "duplicate", "unknown", "not_contiguous", "empty"],
 )
-def test_validate_grouping_catches_errors(groups, message):
-    errors = validate_grouping(IDS, groups)
+def test_check_grouping_catches_errors(groups, message):
+    errors = check_grouping(IDS, groups)
     assert any(message in error for error in errors)
 
 
-def test_validate_grouping_passes_good_groups():
-    assert validate_grouping(IDS, GOOD_GROUPS) == []
+def test_check_grouping_passes_good_groups():
+    assert check_grouping(IDS, GOOD_GROUPS) == []
 
 
 def test_order_groups_sorts_and_renumbers():
@@ -285,8 +286,7 @@ def test_log_write_failure_does_not_replace_result(tmp_path, capsys):
     [
         ("gpt-4.1-mini-2025-04-14", 0.56),
         ("gpt-4.1-mini", 0.56),
-        ("gpt-4.1-2025-04-14", 2.8),
-        ("gpt-4.1-nano", 0.14),
+        ("gpt-6-luna", 0.15),
         ("o3", None),
         (None, None),
     ],

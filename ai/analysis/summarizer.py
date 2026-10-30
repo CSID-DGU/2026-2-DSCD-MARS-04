@@ -9,11 +9,12 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ai.analysis.grouper import DEFAULT_MODEL, DEFAULT_TEMPERATURE, ROOT, group_sentences
+from ai.analysis.grouper import ROOT, TEMPERATURE, group_sentences
 from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
 PROMPT_PATH = Path(__file__).with_name("prompts") / "summary.md"
+SUMMARY_MODEL = "gpt-6-luna"
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 
 
@@ -55,11 +56,13 @@ def call_summary(
     client: OpenAI | None = None,
 ) -> dict:
     load_dotenv(ROOT / ".env")
-    model = model or os.getenv("ANALYSIS_MODEL", DEFAULT_MODEL)
+    model = model or os.getenv("SUMMARY_MODEL", SUMMARY_MODEL)
     client = client or OpenAI()
 
     prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
     user_input = build_summary_input(sentences, groups, previous_errors)
+    # gpt-5·6 계열은 생각을 꺼야 temperature를 쓸 수 있음
+    extra = {"reasoning": {"effort": "none"}} if model.startswith(("gpt-5", "gpt-6")) else {}
 
     started = time.perf_counter()
     response = client.responses.parse(
@@ -69,7 +72,8 @@ def call_summary(
             {"role": "user", "content": user_input},
         ],
         text_format=SummaryResult,
-        temperature=DEFAULT_TEMPERATURE,
+        temperature=TEMPERATURE,
+        **extra,
     )
     latency = time.perf_counter() - started
 
@@ -87,7 +91,7 @@ def call_summary(
 
 
 def find_missing_numbers(source: str, summary: str) -> list[str]:
-    """원문에 있는데 요약에 없는 숫자. 1,000과 1000은 같은 숫자로 본다."""
+    """원문에 있는데 요약에 없는 숫자 찾기"""
 
     def numbers(text: str) -> list[str]:
         return [n.replace(",", "") for n in NUMBER.findall(text)]
@@ -170,7 +174,7 @@ def summarize_groups(
         "model": calls[-1]["model"],
         "response_model": calls[-1]["response_model"],
         "max_retries": max_retries,
-        "temperature": DEFAULT_TEMPERATURE,
+        "temperature": TEMPERATURE,
         "input_tokens": sum(c["input_tokens"] for c in calls),
         "output_tokens": sum(c["output_tokens"] for c in calls),
         "latency_seconds": round(sum(c["latency_seconds"] for c in calls), 2),

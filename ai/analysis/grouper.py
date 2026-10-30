@@ -13,8 +13,8 @@ from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMPT_PATH = Path(__file__).with_name("prompts") / "grouping.md"
-DEFAULT_MODEL = "gpt-4.1-mini"
-DEFAULT_TEMPERATURE = 0
+GROUPING_MODEL = "gpt-4.1-mini"
+TEMPERATURE = 0
 MAX_GROUPS = 10
 
 
@@ -27,7 +27,7 @@ class GroupingResult(BaseModel):
     groups: list[SentenceGroup]
 
 
-def validate_grouping(sentence_ids: list[str], groups: list[dict]) -> list[str]:
+def check_grouping(sentence_ids: list[str], groups: list[dict]) -> list[str]:
     position = {sentence_id: index for index, sentence_id in enumerate(sentence_ids)}
     errors = []
     used = []
@@ -79,7 +79,7 @@ def call_grouping(
     client: OpenAI | None = None,
 ) -> dict:
     load_dotenv(ROOT / ".env")
-    model = model or os.getenv("ANALYSIS_MODEL", DEFAULT_MODEL)
+    model = model or os.getenv("GROUPING_MODEL", GROUPING_MODEL)
     client = client or OpenAI()
 
     prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
@@ -96,7 +96,7 @@ def call_grouping(
             {"role": "user", "content": user_input},
         ],
         text_format=GroupingResult,
-        temperature=DEFAULT_TEMPERATURE,
+        temperature=TEMPERATURE,
     )
     latency = time.perf_counter() - started
 
@@ -130,7 +130,7 @@ def group_sentences(
         result = call_grouping(
             sentences, max_groups, previous_errors=errors, model=model, client=client
         )
-        errors = validate_grouping(sentence_ids, result["groups"])
+        errors = check_grouping(sentence_ids, result["groups"])
         calls.append({"attempt": attempt, **result, "errors": errors})
         if not errors:
             break
@@ -150,7 +150,7 @@ def group_sentences(
         "response_model": calls[-1]["response_model"],
         "max_groups": max_groups,
         "max_retries": max_retries,
-        "temperature": DEFAULT_TEMPERATURE,
+        "temperature": TEMPERATURE,
         "input_tokens": sum(call["input_tokens"] for call in calls),
         "output_tokens": sum(call["output_tokens"] for call in calls),
         "latency_seconds": round(sum(call["latency_seconds"] for call in calls), 2),
@@ -162,7 +162,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="기사 하나를 그룹화해 본다")
     parser.add_argument("--file", default="data/samples/original_text.xlsx")
     parser.add_argument("--index", type=int, default=0, help="몇 번째 기사 (0부터)")
-    parser.add_argument("--model", help="ANALYSIS_MODEL 대신 쓸 모델")
+    parser.add_argument("--model", help="GROUPING_MODEL 대신 쓸 모델")
     args = parser.parse_args()
 
     article = load_articles(args.file, limit=args.index + 1)[args.index]
