@@ -19,10 +19,9 @@ DEFAULT_LOG_PATH = ROOT / "logs" / "analysis.jsonl"
 
 # 1M 토큰당 달러 (입력, 출력). 추정 비용용이며 실제 청구액은 OpenAI 사용량 페이지에서 확인한다.
 # 가격이 바뀌면 여기만 고치면 된다. 표에 없는 모델은 비용을 null로 남긴다.
-PRICES_PER_1M = {
-    "gpt-4.1": (2.00, 8.00),
+PRICES = {
     "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4.1-nano": (0.10, 0.40),
+    "gpt-6-luna": (0.10, 0.50),
 }
 
 
@@ -31,13 +30,13 @@ def sha256(text: str) -> str:
 
 
 def estimate_cost(model: str | None, input_tokens: int, output_tokens: int) -> float | None:
-    """가장 길게 일치하는 이름으로 가격을 찾는다 (gpt-4.1-mini-2025-04-14 → gpt-4.1-mini)."""
+    """가장 길게 일치하는 이름으로 가격을 찾는다"""
     if not model:
         return None
-    matches = [name for name in PRICES_PER_1M if model == name or model.startswith(name + "-")]
+    matches = [name for name in PRICES if model == name or model.startswith(name + "-")]
     if not matches:
         return None
-    input_price, output_price = PRICES_PER_1M[max(matches, key=len)]
+    input_price, output_price = PRICES[max(matches, key=len)]
     return round((input_tokens * input_price + output_tokens * output_price) / 1_000_000, 6)
 
 
@@ -123,8 +122,7 @@ def analyze(document_id: str, text: str, *, log_path: Path | None = None, client
         result = _analyze(document_id, text, record, client)
         record.update(status="success", result=result)
         return result
-    except Exception as exc:
-        # 오류 메시지에는 원문이나 키가 섞일 수 있어 종류와 단계만 남긴다.
+    except Exception as exc:  # 오류 메시지에는 원문이나 키가 섞일 수 있어 종류와 단계만 남긴다
         record["error"] = {"type": type(exc).__name__, "stage": record.get("stage")}
         raise
     finally:
