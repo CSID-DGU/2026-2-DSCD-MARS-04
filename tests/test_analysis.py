@@ -8,7 +8,8 @@ import pytest
 from ai.analysis import agent
 from ai.analysis.agent import analyze, estimate_cost
 from ai.analysis.grouper import GroupingResult, check_grouping, group_sentences, order_groups
-from ai.analysis.summarizer import SummaryResult, find_missing_numbers, summarize_groups
+from ai.analysis.summarizer import SummaryResult, summarize_groups
+from ai.verification.factuality.checker import JudgmentResult
 from data_pipeline.schemas.group import GroupAnalysis
 
 SENTENCES = [
@@ -34,8 +35,13 @@ def drop_numbers(group: dict) -> str:
     return re.sub(r"\d[\d,]*", "", keep_all(group))
 
 
-def fake_client(groupings=None, summarize=keep_all):
-    """그룹화는 groupings를 순서대로 돌려주고, 요약은 summarize(그룹)로 만든다."""
+def all_supported(item: dict) -> list[dict]:
+    return []
+
+
+def fake_client(groupings=None, summarize=keep_all, judge=all_supported):
+    """그룹화는 groupings를 순서대로 돌려주고, 요약은 summarize(그룹)로 만든다.
+    사실성은 judge(문장)가 돌려준 문제 목록이 비어 있으면 일치로 본다."""
     groupings = list(groupings or [GOOD_GROUPS])
 
     def parse(**kwargs):
@@ -43,6 +49,14 @@ def fake_client(groupings=None, summarize=keep_all):
         if kwargs["text_format"] is GroupingResult:
             groups = groupings.pop(0) if len(groupings) > 1 else groupings[0]
             parsed = GroupingResult.model_validate({"groups": groups})
+        elif kwargs["text_format"] is JudgmentResult:
+            judgments = []
+            for item in payload["items"]:
+                problems = judge(item)
+                judgments.append(
+                    {"item_id": item["item_id"], "supported": not problems, "problems": problems}
+                )
+            parsed = JudgmentResult.model_validate({"judgments": judgments})
         else:
             summaries = [
                 {"group_id": g["group_id"], "summary": summarize(g)} for g in payload["groups"]
@@ -140,11 +154,6 @@ def test_grouping_stops_after_max_retries():
 # ---------- 요약 ----------
 
 
-def test_find_missing_numbers_treats_commas_as_same():
-    assert find_missing_numbers("주민 1,200명, 58명", "주민 1200명, 58명") == []
-    assert find_missing_numbers("14일 58명", "14일") == ["58"]
-
-
 def test_summary_passes_without_retry():
     client = fake_client()
     result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
@@ -181,6 +190,57 @@ def test_summary_falls_back_to_source_when_retry_fails():
     assert summaries["G1"] == "군은 14일 교육을 했다. 주민 1,200명이 참석했다."
     assert summaries["G2"] == "감시원 58명을 배치했다."
     assert summaries["G3"] == "행사는 무사히 끝났다."
+
+
+def change_only(group_id, change):
+    """group_id 그룹만 change로 요약하고, 나머지 그룹은 원문 그대로 둔다."""
+    return lambda group: change(group) if group["group_id"] == group_id else keep_all(group)
+
+
+def unsupported_in(*texts):
+    """요약 문장에 texts 중 하나가 있으면 불일치로 판정한다."""
+
+    def judge(item):
+        return [{"quote": t, "reason": "원문과 다릅니다."} for t in texts if t in item["text"]]
+
+    return judge
+
+
+def test_factuality_fail_is_retried_with_reason():
+    def g3_fixed_on_retry(group):
+        if group["group_id"] == "G3" and "previous_error" not in group:
+            return "행사는 성대하게 끝났다."
+        return keep_all(group)
+
+    client = fake_client(summarize=g3_fixed_on_retry, judge=unsupported_in("성대하게"))
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["retried_group_ids"] == ["G3"]
+    assert result["fallback_group_ids"] == []
+    error = requested(client, SummaryResult)[1]["groups"][0]["previous_error"]
+    assert "성대하게" in error and "원문과 다릅니다" in error
+    assert result["calls"][0]["factuality"]["input_tokens"] == 1000
+
+
+def test_factuality_fail_falls_back_to_source():
+    client = fake_client(
+        summarize=change_only("G3", lambda group: "행사는 성대하게 끝났다."),
+        judge=unsupported_in("성대하게"),
+    )
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["fallback_group_ids"] == ["G3"]
+    assert result["groups"][2]["summary"] == "행사는 무사히 끝났다."
+
+
+def test_factuality_skips_rule_failures_and_uses_previous_sentence():
+    client = fake_client(summarize=change_only("G1", drop_numbers))
+    summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    first_check = requested(client, JudgmentResult)[0]["items"]
+    assert {i["item_id"].split("#")[0] for i in first_check} == {"G2", "G3"}
+    g2 = next(i for i in first_check if i["item_id"].startswith("G2"))
+    assert g2["source"] == "주민 1,200명이 참석했다. 감시원 58명을 배치했다."
 
 
 def test_empty_summary_is_retried():
@@ -235,6 +295,12 @@ def test_success_log_appends_and_records_calls(tmp_path):
     assert record["summary"]["attempts"] == 2
     assert [c["attempt"] for c in record["summary"]["calls"]] == [1, 2]
     assert record["summary"]["calls"][1]["requested_group_ids"] == ["G1", "G2"]
+    fact = record["summary"]["calls"][0]["factuality"]
+    assert fact["input_tokens"] == 1000 and fact["estimated_cost_usd"] > 0
+    calls = record["summary"]["calls"]
+    costs = [c["estimated_cost_usd"] for c in calls]
+    costs += [c["factuality"]["estimated_cost_usd"] for c in calls if "factuality" in c]
+    assert record["summary"]["estimated_cost_usd"] == pytest.approx(sum(costs))
     assert record["estimated_cost_usd"] == pytest.approx(
         record["grouping"]["estimated_cost_usd"] + record["summary"]["estimated_cost_usd"]
     )

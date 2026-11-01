@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import re
 import time
 from pathlib import Path
 
@@ -10,12 +9,13 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from ai.analysis.grouper import ROOT, TEMPERATURE, group_sentences
+from ai.verification.factuality.checker import check_factuality
+from ai.verification.numbers import find_missing_numbers, number_context
 from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
 PROMPT_PATH = Path(__file__).with_name("prompts") / "summary.md"
 SUMMARY_MODEL = "gpt-6-luna"
-NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 
 
 class GroupSummary(BaseModel):
@@ -90,23 +90,6 @@ def call_summary(
     }
 
 
-def find_missing_numbers(source: str, summary: str) -> list[str]:
-    """원문에 있는데 요약에 없는 숫자 찾기"""
-
-    def numbers(text: str) -> list[str]:
-        return [n.replace(",", "") for n in NUMBER.findall(text)]
-
-    kept = set(numbers(summary))
-    return sorted(set(numbers(source)) - kept, key=numbers(source).index)
-
-
-def number_context(number: str, source: str) -> str:
-    for word in source.split():
-        if number in [n.replace(",", "") for n in NUMBER.findall(word)]:
-            return word
-    return number
-
-
 def check_summaries(sentences: list[dict], groups: list[dict], summaries: dict) -> dict:
     """그룹마다 문제를 찾는다. 문제가 없는 그룹은 결과에 없다."""
     text = {s["sentence_id"]: s["text"] for s in sentences}
@@ -126,6 +109,49 @@ def check_summaries(sentences: list[dict], groups: list[dict], summaries: dict) 
     return errors
 
 
+def check_facts(
+    sentences: list[dict], groups: list[dict], summaries: dict, *, client: OpenAI | None = None
+) -> tuple[dict, dict | None]:
+    """요약이 그룹 원문과 맞는지 본다.
+
+    요약은 가리키는 말을 바로 앞 문장의 표현으로 바꿀 수 있어서, 앞 문장도 원문에 같이 넣는다.
+    """
+    if not groups:
+        return {}, None
+    text = {s["sentence_id"]: s["text"] for s in sentences}
+    position = {s["sentence_id"]: n for n, s in enumerate(sentences)}
+    items = []
+    for group in groups:
+        first = position[group["sentence_ids"][0]]
+        before = [sentences[first - 1]["text"]] if first > 0 else []
+        source = " ".join(before + [text[i] for i in group["sentence_ids"]])
+        items.append(
+            {"item_id": group["group_id"], "source": source, "text": summaries[group["group_id"]]}
+        )
+
+    checked = check_factuality(items, by_sentence=True, client=client)
+    errors = {}
+    for result in checked["results"]:
+        if result["status"] == "FAIL":
+            where = " ".join(f"'{p['quote']}': {p['reason']}" for p in result["problems"])
+            errors[result["item_id"]] = (
+                f"원문과 맞지 않는 부분이 있습니다. {where} 원문 문장의 표현을 그대로 남기세요."
+            )
+    return errors, checked["call"]
+
+
+def find_errors(
+    sentences: list[dict], groups: list[dict], summaries: dict, *, client: OpenAI | None = None
+) -> tuple[dict, dict | None]:
+    """규칙 검사(빈 요약, 숫자 누락)를 먼저 하고, 통과한 그룹만 사실성을 본다."""
+    errors = check_summaries(sentences, groups, summaries)
+    passed = [g for g in groups if g["group_id"] not in errors]
+    fact_errors, fact_call = check_facts(sentences, passed, summaries, client=client)
+    errors |= fact_errors
+    ordered = {g["group_id"]: errors[g["group_id"]] for g in groups if g["group_id"] in errors}
+    return ordered, fact_call
+
+
 def summarize_groups(
     sentences: list[dict],
     groups: list[dict],
@@ -134,13 +160,18 @@ def summarize_groups(
     client: OpenAI | None = None,
     max_retries: int = 1,
 ) -> dict:
-    """요약하고 검사한다. 걸린 그룹만 다시 요청하고, 그래도 안 되면 원문 문장으로 대체한다."""
+    """요약하고 검사한다(규칙 → 사실성).
+
+    걸린 그룹만 다시 요청하고, 그래도 안 되면 원문 문장으로 대체한다.
+    """
     text = {s["sentence_id"]: s["text"] for s in sentences}
     first = call_summary(sentences, groups, model=model, client=client)
     summaries = {item["group_id"]: item["summary"] for item in first["summaries"]}
-    errors = check_summaries(sentences, groups, summaries)
+    errors, fact_call = find_errors(sentences, groups, summaries, client=client)
     group_ids = [g["group_id"] for g in groups]
-    calls = [{"attempt": 1, "group_ids": group_ids, **first, "errors": errors}]
+    calls = [
+        {"attempt": 1, "group_ids": group_ids, **first, "errors": errors, "factuality": fact_call}
+    ]
     retried = list(errors)
 
     for attempt in range(2, max_retries + 2):
@@ -151,13 +182,14 @@ def summarize_groups(
         for item in result["summaries"]:
             if item["group_id"] in errors:
                 summaries[item["group_id"]] = item["summary"]
-        errors = check_summaries(sentences, failed, summaries)
+        errors, fact_call = find_errors(sentences, failed, summaries, client=client)
         calls.append(
             {
                 "attempt": attempt,
                 "group_ids": [g["group_id"] for g in failed],
                 **result,
                 "errors": errors,
+                "factuality": fact_call,
             }
         )
 
