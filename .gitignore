@@ -5,7 +5,9 @@
 
 # Experiment data and results
 data/samples/original_text.xlsx
+data/samples/aihub/
 experiments/**/results/
+experiments/my_experiments/
 
 # Python
 __pycache__/
