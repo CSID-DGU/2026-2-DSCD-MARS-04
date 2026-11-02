@@ -1,4 +1,8 @@
-from ai.verification.consistency.numbers import find_missing_numbers, find_new_numbers, number_context
+from ai.verification.consistency.numbers import (
+    find_missing_numbers,
+    find_new_numbers,
+    number_context,
+)
 
 
 def test_find_missing_numbers_treats_commas_as_same():
