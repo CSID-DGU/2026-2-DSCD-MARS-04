@@ -15,12 +15,12 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ai.verification.numbers import find_new_numbers, number_context
+from ai.verification.consistency.numbers import find_new_numbers, number_context
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
 ROOT = Path(__file__).resolve().parents[3]
-PROMPT_PATH = Path(__file__).with_name("prompts") / "factuality.md"
-FACTUALITY_MODEL = "gpt-6-luna"
+PROMPT_PATH = Path(__file__).with_name("prompts") / "consistency.md"
+CONSISTENCY_MODEL = "gpt-6-luna"
 TEMPERATURE = 0
 REQUEST_TIMEOUT = 60  # 초. 응답이 없으면 기본값(10분)까지 기다리지 않고 다시 시도한다
 
@@ -60,7 +60,7 @@ def call_judge(
     items: list[dict], *, model: str | None = None, client: OpenAI | None = None
 ) -> dict:
     load_dotenv(ROOT / ".env")
-    model = model or os.getenv("FACTUALITY_MODEL", FACTUALITY_MODEL)
+    model = model or os.getenv("CONSISTENCY_MODEL", CONSISTENCY_MODEL)
     client = client or OpenAI(timeout=REQUEST_TIMEOUT, max_retries=2)
 
     prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
@@ -137,7 +137,7 @@ def split_into_sentences(items: list[dict]) -> list[dict]:
     return units
 
 
-def check_factuality(
+def check_consistency(
     items: list[dict],
     *,
     by_sentence: bool = False,

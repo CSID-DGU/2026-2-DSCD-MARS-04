@@ -56,11 +56,11 @@ def call_record(call: dict, output_key: str) -> dict:
     }
     if "group_ids" in call:
         record["requested_group_ids"] = call["group_ids"]
-    fact = call.get("factuality")
+    fact = call.get("consistency")
     if fact:  # 요약 뒤 사실성 판정 호출. 판정 이유는 errors에 있다
         keys = ("response_model", "input_tokens", "output_tokens", "latency_seconds")
-        record["factuality"] = {key: fact[key] for key in keys}
-        record["factuality"]["estimated_cost_usd"] = estimate_cost(
+        record["consistency"] = {key: fact[key] for key in keys}
+        record["consistency"]["estimated_cost_usd"] = estimate_cost(
             fact["response_model"] or fact["model"], fact["input_tokens"], fact["output_tokens"]
         )
     return record
@@ -73,7 +73,7 @@ def stage_record(
     keys += ("latency_seconds",)
     calls = [call_record(call, output_key) for call in result["calls"]]
     costs = [call["estimated_cost_usd"] for call in calls]
-    costs += [call["factuality"]["estimated_cost_usd"] for call in calls if "factuality" in call]
+    costs += [call["consistency"]["estimated_cost_usd"] for call in calls if "consistency" in call]
     return {
         **{key: result[key] for key in keys + extra_keys},
         "estimated_cost_usd": None if None in costs else round(sum(costs), 6),
