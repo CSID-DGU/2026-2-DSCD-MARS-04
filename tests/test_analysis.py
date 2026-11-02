@@ -9,7 +9,7 @@ from ai.analysis import agent
 from ai.analysis.agent import analyze, estimate_cost
 from ai.analysis.grouper import GroupingResult, check_grouping, group_sentences, order_groups
 from ai.analysis.summarizer import SummaryResult, summarize_groups
-from ai.verification.factuality.checker import JudgmentResult
+from ai.verification.consistency.checker import JudgmentResult
 from data_pipeline.schemas.group import GroupAnalysis
 
 SENTENCES = [
@@ -206,7 +206,7 @@ def unsupported_in(*texts):
     return judge
 
 
-def test_factuality_fail_is_retried_with_reason():
+def test_consistency_fail_is_retried_with_reason():
     def g3_fixed_on_retry(group):
         if group["group_id"] == "G3" and "previous_error" not in group:
             return "행사는 성대하게 끝났다."
@@ -219,10 +219,10 @@ def test_factuality_fail_is_retried_with_reason():
     assert result["fallback_group_ids"] == []
     error = requested(client, SummaryResult)[1]["groups"][0]["previous_error"]
     assert "성대하게" in error and "원문과 다릅니다" in error
-    assert result["calls"][0]["factuality"]["input_tokens"] == 1000
+    assert result["calls"][0]["consistency"]["input_tokens"] == 1000
 
 
-def test_factuality_fail_falls_back_to_source():
+def test_consistency_fail_falls_back_to_source():
     client = fake_client(
         summarize=change_only("G3", lambda group: "행사는 성대하게 끝났다."),
         judge=unsupported_in("성대하게"),
@@ -233,7 +233,7 @@ def test_factuality_fail_falls_back_to_source():
     assert result["groups"][2]["summary"] == "행사는 무사히 끝났다."
 
 
-def test_factuality_skips_rule_failures_and_uses_previous_sentence():
+def test_consistency_skips_rule_failures_and_uses_previous_sentence():
     client = fake_client(summarize=change_only("G1", drop_numbers))
     summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
 
@@ -295,11 +295,11 @@ def test_success_log_appends_and_records_calls(tmp_path):
     assert record["summary"]["attempts"] == 2
     assert [c["attempt"] for c in record["summary"]["calls"]] == [1, 2]
     assert record["summary"]["calls"][1]["requested_group_ids"] == ["G1", "G2"]
-    fact = record["summary"]["calls"][0]["factuality"]
+    fact = record["summary"]["calls"][0]["consistency"]
     assert fact["input_tokens"] == 1000 and fact["estimated_cost_usd"] > 0
     calls = record["summary"]["calls"]
     costs = [c["estimated_cost_usd"] for c in calls]
-    costs += [c["factuality"]["estimated_cost_usd"] for c in calls if "factuality" in c]
+    costs += [c["consistency"]["estimated_cost_usd"] for c in calls if "consistency" in c]
     assert record["summary"]["estimated_cost_usd"] == pytest.approx(sum(costs))
     assert record["estimated_cost_usd"] == pytest.approx(
         record["grouping"]["estimated_cost_usd"] + record["summary"]["estimated_cost_usd"]

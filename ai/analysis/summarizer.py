@@ -9,8 +9,8 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from ai.analysis.grouper import ROOT, TEMPERATURE, group_sentences
-from ai.verification.factuality.checker import check_factuality
-from ai.verification.numbers import find_missing_numbers, number_context
+from ai.verification.consistency.checker import check_consistency
+from ai.verification.consistency.numbers import find_missing_numbers, number_context
 from data_pipeline.extraction.llm.data_loader import load_articles
 from data_pipeline.extraction.llm.sentence_splitter import split_sentences
 
@@ -129,7 +129,7 @@ def check_facts(
             {"item_id": group["group_id"], "source": source, "text": summaries[group["group_id"]]}
         )
 
-    checked = check_factuality(items, by_sentence=True, client=client)
+    checked = check_consistency(items, by_sentence=True, client=client)
     errors = {}
     for result in checked["results"]:
         if result["status"] == "FAIL":
@@ -170,7 +170,7 @@ def summarize_groups(
     errors, fact_call = find_errors(sentences, groups, summaries, client=client)
     group_ids = [g["group_id"] for g in groups]
     calls = [
-        {"attempt": 1, "group_ids": group_ids, **first, "errors": errors, "factuality": fact_call}
+        {"attempt": 1, "group_ids": group_ids, **first, "errors": errors, "consistency": fact_call}
     ]
     retried = list(errors)
 
@@ -189,7 +189,7 @@ def summarize_groups(
                 "group_ids": [g["group_id"] for g in failed],
                 **result,
                 "errors": errors,
-                "factuality": fact_call,
+                "consistency": fact_call,
             }
         )
 
