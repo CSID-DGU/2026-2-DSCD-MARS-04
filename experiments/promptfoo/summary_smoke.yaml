@@ -1,0 +1,38 @@
+# 요약 비교 오프라인 연결 확인 (API 호출 없음)
+# 두 provider 모두 저장된 fixture를 돌려준다. 점수는 성능이 아니라 연결 확인 결과다.
+# 실제 비교로 바꿀 때: providers를 실제 함수 provider로 교체하고, tests를 동결한 평가 기사로 교체한다.
+description: CardSync 요약 vs 직접 GPT 요약 — offline smoke (fixture)
+
+prompts:
+  - "{{source}}"
+
+providers:
+  - id: file://providers/replay.py
+    label: cardsync_fixture
+    config:
+      fixture: summary_outputs.json
+      system: cardsync_fixture
+  - id: file://providers/replay.py
+    label: direct_gpt_fixture
+    config:
+      fixture: summary_outputs.json
+      system: direct_gpt_fixture
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://assertions/summary_numbers.py:no_new_numbers
+      metric: no_new_numbers
+    - type: python
+      value: file://assertions/summary_numbers.py:keeps_source_numbers
+      metric: keeps_source_numbers
+
+tests:
+  - description: 정상 연결 사례
+    vars:
+      case_id: smoke_ev_subsidy
+      source: 아산시는 전기차 196대를 지원하며 초소형 보조금은 최대 870만원이다.
+  - description: 숫자 변경을 일부러 넣은 사례 (cardsync_fixture는 실패해야 정상)
+    vars:
+      case_id: smoke_number_changed
+      source: 아산시는 전기차 196대를 지원하며 초소형 보조금은 최대 870만원이다.
