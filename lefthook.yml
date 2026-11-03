@@ -1,3 +1,8 @@
+pre-commit:
+  commands:
+    gitleaks:
+      # gitleaks가 설치된 경우에만 스테이징된 변경을 검사한다(설치: brew install gitleaks)
+      run: if command -v gitleaks >/dev/null 2>&1; then gitleaks git --pre-commit --staged --redact --no-banner; fi
 commit-msg:
   commands:
     check-type:
