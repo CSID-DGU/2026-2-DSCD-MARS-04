@@ -1,0 +1,16 @@
+{
+  "name": "cardsync-promptfoo-eval",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CardSync 오프라인 promptfoo 평가 환경",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "smoke": "sh scripts/run_smoke.sh",
+    "view": "promptfoo view"
+  },
+  "dependencies": {
+    "promptfoo": "0.125.1"
+  }
+}
