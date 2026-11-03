@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from backend.core.logging import RequestLogMiddleware, configure_logging
 from backend.core.responses import ApiError, api_error_handler, ok, validation_error_handler
 from backend.core.store import Store
 from backend.services import workflow as wf
@@ -38,6 +39,9 @@ def create_app(store: Store | None = None, pipeline: Pipeline | None = None) -> 
     app.add_middleware(
         CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"]
     )
+    # 마지막에 추가한 미들웨어가 가장 바깥에서 돈다. CORS 응답과 오류 응답에도 request_id가 붙는다
+    app.add_middleware(RequestLogMiddleware)
+    configure_logging(os.getenv("CARDSYNC_LOG_LEVEL", "INFO"))
     register(app)
     return app
 
@@ -107,7 +111,11 @@ def register(app: FastAPI) -> None:
         if job is None:
             raise ApiError(404, "존재하지 않는 작업입니다.")
         keys = ("job_id", "kind", "status", "stage", "document_id", "error", "elapsed_seconds")
-        return ok("작업 상태를 조회했습니다.", {k: job[k] for k in keys})
+        stages = job.get("stages", [])
+        return ok(
+            "작업 상태를 조회했습니다.",
+            {k: job[k] for k in keys} | {"request_id": job.get("request_id"), "stages": stages},
+        )
 
     @app.get(f"{BASE}/documents/{{document_id}}", tags=["Document"], summary="원문·정보 묶음 조회")
     def get_document(document_id: str, store: StoreDep):
