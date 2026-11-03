@@ -1,7 +1,6 @@
 # promptfoo 평가 환경 (CardSync)
 
 요약문 비교와 카드뉴스 시각 평가를 같은 방식으로 실행·기록하기 위한 promptfoo 환경이다.
-팀원용 사용 설명은 [docs/promptfoo-guide.md](../../docs/promptfoo-guide.md)를 본다.
 
 > **현재 상태:** 저장된 fixture로 연결만 확인하는 오프라인 smoke다.
 > 실제 CardSync 요약 함수, 직접 GPT 요약, 비전 평가기는 아직 연결하지 않았다.
