@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from backend.core.logging import current_request_id, log
 from backend.core.responses import ApiError
 from backend.core.store import Store, new_id, now
 from backend.services.pipeline import CHECKER_NAME, Pipeline
@@ -82,23 +83,49 @@ def start_job(store: Store, kind: str, document_id: str) -> dict:
         "started_at": now(),
         "finished_at": None,
         "elapsed_seconds": None,
+        "request_id": current_request_id(),
+        "stages": [],
     }
     store.save_job(job)
     return job
 
 
 def run_job(store: Store, job: dict, work) -> None:
+    """작업을 실행하고 단계별 처리 시간을 job["stages"]와 JSON 로그에 남긴다."""
     started = time.perf_counter()
+    rid = job.get("request_id")
+    current = {"name": None, "t": started}
+
+    def close_stage(status: str) -> None:
+        if current["name"] is None:
+            return
+        ms = round((time.perf_counter() - current["t"]) * 1000, 1)
+        job.setdefault("stages", []).append(
+            {"name": current["name"], "duration_ms": ms, "status": status}
+        )
+        log(
+            "job_stage",
+            request_id=rid,
+            job_id=job["job_id"],
+            kind=job["kind"],
+            stage=current["name"],
+            status=status,
+            duration_ms=ms,
+        )
 
     def stage(name: str) -> None:
+        close_stage("ok")
+        current.update(name=name, t=time.perf_counter())
         job.update(status="running", stage=name)
         store.save_job(job)
 
     try:
         stage("start")
         work(stage)
+        close_stage("ok")
         job.update(status="succeeded")
     except Exception as exc:  # 오류 본문에는 원문·키가 섞일 수 있어 종류와 단계만 남긴다
+        close_stage("failed")
         job.update(status="failed", error={"type": type(exc).__name__, "stage": job.get("stage")})
         raise_for_doc = {"analysis": "analysis_failed", "generation": "generation_failed"}.get(
             job["kind"]
@@ -111,6 +138,15 @@ def run_job(store: Store, job: dict, work) -> None:
     finally:
         job.update(finished_at=now(), elapsed_seconds=round(time.perf_counter() - started, 3))
         store.save_job(job)
+        log(
+            "job_finished",
+            request_id=rid,
+            job_id=job["job_id"],
+            kind=job["kind"],
+            status=job["status"],
+            error_type=(job["error"] or {}).get("type"),
+            elapsed_seconds=job["elapsed_seconds"],
+        )
 
 
 # ---------------- 문서 ----------------
