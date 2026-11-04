@@ -4,6 +4,7 @@
  * (AX-Surfers card-news-plugin 템플릿을 참고해 손봄, MIT)
  */
 import type { Card, CardImage } from '../../types/domain'
+import { credit } from './util'
 import '../../styles/card.css'
 
 const LOGO = '/logo.svg'
@@ -21,14 +22,6 @@ const ICON = {
   heart: <Svg d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z" />,
   comment: <Svg d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z" />,
   save: <Svg d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
-}
-
-export function credit(image: CardImage | undefined, sourceName = '대한민국 정책브리핑'): string {
-  const base = `출처 ${sourceName}`
-  if (!image) return base
-  if (image.stage === 'unsplash') return `${base} · 사진 ${image.author ?? ''} / Unsplash`
-  if (image.stage === 'upload') return `${base} · 사진 직접 업로드`
-  return base
 }
 
 function Bg({ image, className }: { image?: CardImage; className: string }) {
