@@ -8,6 +8,16 @@ interface Envelope<T> {
   data?: T
 }
 
+/** 백엔드 검사 결과는 problems[{quote, reason}] 이고 summary 가 없다. 화면이 쓰는 issues 모양으로 맞춘다. */
+function normalizeCard(c: Card & { check?: (Card['check'] & { problems?: { quote: string; reason: string }[] }) | null }): Card {
+  const check = c.check
+  if (!check) return c
+  const problems = check.problems ?? []
+  const issues = check.issues ?? problems.map((p) => ({ type: '원문과 다름', source_span: '', card_span: p.quote, explanation: p.reason }))
+  const summary = check.summary ?? (check.verdict === 'ok' ? '카드 문구가 근거 원문으로 뒷받침돼요.' : `원문과 다른 부분이 ${issues.length}곳 있어요.`)
+  return { ...c, check: { ...check, issues, summary } }
+}
+
 export function createHttpApi(base: string): CardSyncApi {
   const root = `${base.replace(/\/$/, '')}/api/v1`
 
@@ -39,16 +49,21 @@ export function createHttpApi(base: string): CardSyncApi {
       call(`/documents/${id}/selection`, { method: 'PUT', body: JSON.stringify({ required_group_ids: groupIds }) }),
     createCards: (id, overwrite) =>
       call<StartedJob>(`/documents/${id}/cards?overwrite=${overwrite}`, { method: 'POST' }),
-    listCards: async (id) => (await call<{ cards: Card[] }>(`/documents/${id}/cards`)).cards,
+    listCards: async (id) => (await call<{ cards: Card[] }>(`/documents/${id}/cards`)).cards.map(normalizeCard),
     patchCard: async (id, cardId, expectedVersion, fields: Partial<CardFields>) =>
-      (
-        await call<{ card: Card }>(`/documents/${id}/cards/${cardId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ expected_version: expectedVersion, ...fields }),
-        })
-      ).card,
+      normalizeCard(
+        (
+          await call<{ card: Card }>(`/documents/${id}/cards/${cardId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ expected_version: expectedVersion, ...fields }),
+          })
+        ).card,
+      ),
     createChecks: (id, cardIds) =>
       call(`/documents/${id}/checks`, { method: 'POST', body: JSON.stringify(cardIds ? { card_ids: cardIds } : {}) }),
-    record: (id) => call<ExportRecord>(`/documents/${id}/record`),
+    record: async (id) => {
+      const r = await call<ExportRecord>(`/documents/${id}/record`)
+      return { ...r, cards: r.cards.map(normalizeCard) }
+    },
   }
 }
