@@ -43,9 +43,7 @@ def load_verification_prompt() -> str:
     prompt_path = Path(__file__).with_name("verification_prompt.md")
 
     if not prompt_path.is_file():
-        raise FileNotFoundError(
-            f"검증 프롬프트 파일을 찾을 수 없습니다: {prompt_path}"
-        )
+        raise FileNotFoundError(f"검증 프롬프트 파일을 찾을 수 없습니다: {prompt_path}")
 
     prompt = prompt_path.read_text(encoding="utf-8").strip()
 
@@ -193,9 +191,7 @@ def verify_field(
     judgment = response.output_parsed
 
     if judgment is None:
-        raise ValueError(
-            f"LLM 응답을 파싱하지 못했습니다: {unit.unit_id}"
-        )
+        raise ValueError(f"LLM 응답을 파싱하지 못했습니다: {unit.unit_id}")
 
     judgment = validate_judgment(
         judgment=judgment,
@@ -232,16 +228,11 @@ def check_llm_completeness(
 ) -> LLMCompletenessResult:
     selected_model = model or os.getenv("VERIFICATION_MODEL") or DEFAULT_MODEL
 
-    group_map = {
-        group.group_id: group.summary
-        for group in groups
-    }
+    group_map = {group.group_id: group.summary for group in groups}
 
     for card in final_cards.cards:
         if card.group_id is not None and card.group_id not in group_map:
-            raise ValueError(
-                f"카드 {card.card_id}의 그룹 {card.group_id}을 찾을 수 없습니다."
-            )
+            raise ValueError(f"카드 {card.card_id}의 그룹 {card.group_id}을 찾을 수 없습니다.")
 
     units = extract_card_texts(final_cards)
 
@@ -289,16 +280,12 @@ def check_llm_completeness(
             LLMCardResult(
                 card_id=card.card_id,
                 group_id=card.group_id,
-                status=aggregate_status(
-                    [field.status for field in field_results]
-                ),
+                status=aggregate_status([field.status for field in field_results]),
                 fields=tuple(field_results),
             )
         )
 
-    overall_status = aggregate_status(
-        [card.status for card in card_results]
-    )
+    overall_status = aggregate_status([card.status for card in card_results])
 
     return LLMCompletenessResult(
         document_id=final_cards.document_id,

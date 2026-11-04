@@ -1,4 +1,3 @@
-
 import json
 import os
 from dataclasses import dataclass
@@ -67,9 +66,7 @@ def load_completeness_prompt() -> str:
     path = Path(__file__).with_name("c_prompt.md")
 
     if not path.is_file():
-        raise FileNotFoundError(
-            f"완전성 검사 프롬프트를 찾을 수 없습니다: {path}"
-        )
+        raise FileNotFoundError(f"완전성 검사 프롬프트를 찾을 수 없습니다: {path}")
 
     prompt = path.read_text(encoding="utf-8").strip()
 
@@ -97,14 +94,9 @@ def build_required_facts(
         unknown_ids = set(required_group_ids) - set(group_map)
 
         if unknown_ids:
-            raise ValueError(
-                f"존재하지 않는 그룹 ID: {sorted(unknown_ids)}"
-            )
+            raise ValueError(f"존재하지 않는 그룹 ID: {sorted(unknown_ids)}")
 
-        selected_groups = [
-            group_map[group_id]
-            for group_id in required_group_ids
-        ]
+        selected_groups = [group_map[group_id] for group_id in required_group_ids]
 
     required_facts = []
 
@@ -112,9 +104,7 @@ def build_required_facts(
         summary = group.summary.strip()
 
         if not summary:
-            raise ValueError(
-                f"{group.group_id}의 summary가 비어 있습니다."
-            )
+            raise ValueError(f"{group.group_id}의 summary가 비어 있습니다.")
 
         required_facts.append(
             RequiredFact(
@@ -186,48 +176,27 @@ def validate_coverage_response(
     expected_ids = [fact.fact_id for fact in required_facts]
     returned_ids = [result.fact_id for result in parsed.results]
 
-    if (
-        len(returned_ids) != len(expected_ids)
-        or set(returned_ids) != set(expected_ids)
-    ):
-        raise ValueError(
-            "LLM이 반환한 검증 항목 ID가 요청한 ID와 일치하지 않습니다."
-        )
+    if len(returned_ids) != len(expected_ids) or set(returned_ids) != set(expected_ids):
+        raise ValueError("LLM이 반환한 검증 항목 ID가 요청한 ID와 일치하지 않습니다.")
 
     valid_card_ids = {card.card_id for card in cards}
 
     for result in parsed.results:
-        if len(result.matched_card_ids) != len(
-            set(result.matched_card_ids)
-        ):
-            raise ValueError(
-                f"{result.fact_id}: 카드 ID가 중복되었습니다."
-            )
+        if len(result.matched_card_ids) != len(set(result.matched_card_ids)):
+            raise ValueError(f"{result.fact_id}: 카드 ID가 중복되었습니다.")
 
         if not set(result.matched_card_ids).issubset(valid_card_ids):
-            raise ValueError(
-                f"{result.fact_id}에 존재하지 않는 카드 ID가 포함되어 있습니다."
-            )
+            raise ValueError(f"{result.fact_id}에 존재하지 않는 카드 ID가 포함되어 있습니다.")
 
         if result.status == "MISSING" and result.matched_card_ids:
-            raise ValueError(
-                f"{result.fact_id}: 누락된 정보에 관련 카드가 지정되었습니다."
-            )
+            raise ValueError(f"{result.fact_id}: 누락된 정보에 관련 카드가 지정되었습니다.")
 
         if result.status == "COVERED" and result.missing_elements:
-            raise ValueError(
-                f"{result.fact_id}: 반영 완료 정보에 누락 요소가 있습니다."
-            )
+            raise ValueError(f"{result.fact_id}: 반영 완료 정보에 누락 요소가 있습니다.")
 
-    result_map = {
-        result.fact_id: result
-        for result in parsed.results
-    }
+    result_map = {result.fact_id: result for result in parsed.results}
 
-    return [
-        result_map[fact_id]
-        for fact_id in expected_ids
-    ]
+    return [result_map[fact_id] for fact_id in expected_ids]
 
 
 def verify_group_coverage(
@@ -247,14 +216,8 @@ def verify_group_coverage(
     payload = {
         "group_id": group.group_id,
         "evidence_summary": group.summary,
-        "required_facts": [
-            fact.model_dump(mode="json")
-            for fact in required_facts
-        ],
-        "cards": [
-            extract_card_content(card)
-            for card in cards
-        ],
+        "required_facts": [fact.model_dump(mode="json") for fact in required_facts],
+        "cards": [extract_card_content(card) for card in cards],
     }
 
     response = client.responses.parse(
@@ -268,9 +231,7 @@ def verify_group_coverage(
     parsed = response.output_parsed
 
     if parsed is None:
-        raise ValueError(
-            f"{group.group_id}의 완전성 검사 결과를 파싱하지 못했습니다."
-        )
+        raise ValueError(f"{group.group_id}의 완전성 검사 결과를 파싱하지 못했습니다.")
 
     judgments = validate_coverage_response(
         parsed=parsed,
@@ -295,16 +256,9 @@ def check_llm_completeness(
     model: str | None = None,
     client: OpenAI | None = None,
 ) -> CompletenessResult:
-    selected_model = (
-        model
-        or os.getenv("VERIFICATION_MODEL")
-        or DEFAULT_MODEL
-    )
+    selected_model = model or os.getenv("VERIFICATION_MODEL") or DEFAULT_MODEL
 
-    group_map = {
-        group.group_id: group
-        for group in groups
-    }
+    group_map = {group.group_id: group for group in groups}
 
     if len(group_map) != len(groups):
         raise ValueError("그룹 ID가 중복되었습니다.")
@@ -315,33 +269,21 @@ def check_llm_completeness(
             required_group_ids=required_group_ids,
         )
     elif required_group_ids is not None:
-        raise ValueError(
-            "required_facts와 required_group_ids는 함께 지정할 수 없습니다."
-        )
+        raise ValueError("required_facts와 required_group_ids는 함께 지정할 수 없습니다.")
 
-    fact_ids = [
-        fact.fact_id
-        for fact in required_facts
-    ]
+    fact_ids = [fact.fact_id for fact in required_facts]
 
     if len(fact_ids) != len(set(fact_ids)):
         raise ValueError("검증 항목 ID가 중복되었습니다.")
 
     for fact in required_facts:
         if fact.group_id not in group_map:
-            raise ValueError(
-                f"{fact.fact_id}의 그룹 {fact.group_id}이 존재하지 않습니다."
-            )
+            raise ValueError(f"{fact.fact_id}의 그룹 {fact.group_id}이 존재하지 않습니다.")
 
         if not fact.text.strip():
-            raise ValueError(
-                f"{fact.fact_id}의 검증 내용이 비어 있습니다."
-            )
+            raise ValueError(f"{fact.fact_id}의 검증 내용이 비어 있습니다.")
 
-    card_ids = [
-        card.card_id
-        for card in final_cards.cards
-    ]
+    card_ids = [card.card_id for card in final_cards.cards]
 
     if len(card_ids) != len(set(card_ids)):
         raise ValueError("카드 ID가 중복되었습니다.")
@@ -373,10 +315,7 @@ def check_llm_completeness(
                 [],
             ).append(card)
 
-    needs_api = any(
-        cards_by_group.get(group_id)
-        for group_id in facts_by_group
-    )
+    needs_api = any(cards_by_group.get(group_id) for group_id in facts_by_group)
 
     if needs_api and client is None:
         client = OpenAI()
@@ -386,14 +325,12 @@ def check_llm_completeness(
     total_output_tokens = 0
 
     for group_id, group_facts in facts_by_group.items():
-        judgments, input_tokens, output_tokens = (
-            verify_group_coverage(
-                group=group_map[group_id],
-                required_facts=group_facts,
-                cards=cards_by_group.get(group_id, []),
-                client=client,
-                model=selected_model,
-            )
+        judgments, input_tokens, output_tokens = verify_group_coverage(
+            group=group_map[group_id],
+            required_facts=group_facts,
+            cards=cards_by_group.get(group_id, []),
+            client=client,
+            model=selected_model,
         )
 
         results.extend(judgments)
@@ -403,9 +340,7 @@ def check_llm_completeness(
     return CompletenessResult(
         document_id=final_cards.document_id,
         model=selected_model,
-        status=aggregate_status(
-            [result.status for result in results]
-        ),
+        status=aggregate_status([result.status for result in results]),
         results=tuple(results),
         input_tokens=total_input_tokens,
         output_tokens=total_output_tokens,

@@ -1,4 +1,3 @@
-from ai.verification.shared.card_text_extractor import CardTextUnit
 from ai.verification.factuality.hybrid.evidence_matcher import (
     EvidenceCandidate,
     EvidenceMatch,
@@ -8,6 +7,7 @@ from ai.verification.factuality.hybrid.rule_checks import (
     check_rule_risks,
     extract_measurements,
 )
+from ai.verification.shared.card_text_extractor import CardTextUnit
 
 
 def make_match(card_text, evidence_text):

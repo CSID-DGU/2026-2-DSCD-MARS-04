@@ -2,12 +2,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai.verification.shared.card_text_extractor import CardTextUnit
 from ai.verification.factuality.hybrid.evidence_matcher import (
     calculate_similarity,
     match_evidence,
     split_group_summary,
 )
+from ai.verification.shared.card_text_extractor import CardTextUnit
 
 
 def make_group(group_id, summary):
