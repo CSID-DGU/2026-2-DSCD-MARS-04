@@ -46,7 +46,9 @@ function Row({ card, i, n, wf }: { card: Card; i: number; n: number; wf: Workflo
             </p>
           </div>
         </div>
-        {v === 'unchecked' ? (
+        {!card.sids.length ? (
+          <p className="note">근거 문장이 없는 템플릿 카드예요. 사실성 검사 대상이 아니에요.</p>
+        ) : v === 'unchecked' ? (
           <p className="note">아직 검사하지 않았어요.</p>
         ) : v === 'pending' ? (
           <p className="note">문구가 바뀌어 이전 판정은 만료됐어요. 다시 검사해 주세요.</p>
@@ -81,8 +83,8 @@ export default function CheckView({ wf }: { wf: Workflow }) {
   const cs = wf.cards
   const n = cs.length
   const prob = cs.filter((c) => c.status === 'warn' || c.status === 'bad').length
-  const pend = cs.filter((c) => c.status === 'pending' || c.status === 'unchecked').length
-  const unc = cs.filter((c) => c.status === 'unchecked').length
+  const pend = cs.filter((c) => c.sids.length && (c.status === 'pending' || c.status === 'unchecked')).length
+  const unc = cs.filter((c) => c.sids.length && c.status === 'unchecked').length
   const t = wf.checkFailed ? '검사를 완료하지 못했어요.' : prob ? `카드 ${n}장 중 ${prob}장이 원문과 달라졌어요.` : pend ? (unc === pend ? `아직 검사하지 않은 카드가 ${pend}장 있어요.` : `고친 카드 ${pend}장을 다시 검사해 주세요.`) : '모든 카드가 원문과 일치해요.'
   const p = wf.checkFailed ? '잠시 후 다시 시도해 주세요. 이전 결과는 새 검사 결과로 쓰지 않아요.' : '빨간 바탕은 원문에서 빠지거나 바뀐 부분, 물결 밑줄은 카드에서 달라진 표현이에요. 표시를 가리키면 짝이 함께 강조돼요.'
 

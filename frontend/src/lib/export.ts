@@ -1,5 +1,4 @@
 /** 카드 PNG(1080×1350)와 검수 기록 JSON 저장. 서버 렌더링 API는 준비 중이라 브라우저에서 그린다. */
-import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
 import CardTemplate from '../components/card/CardTemplate'
 import cardCss from '../styles/card.css?raw'
@@ -37,6 +36,7 @@ async function inlineImages(card: Card): Promise<Card> {
 export async function cardToPngBlob(card: Card, index: number, total: number, sourceName?: string): Promise<Blob> {
   const inlined = await inlineImages(card)
   const logo = await toDataUrl('/logo.svg')
+  const { renderToStaticMarkup } = await import('react-dom/server')
   const html = renderToStaticMarkup(createElement(CardTemplate, { card: inlined, index, total, sourceName })).replaceAll('src="/logo.svg"', `src="${logo}"`)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="900"><foreignObject x="0" y="0" width="720" height="900"><div xmlns="http://www.w3.org/1999/xhtml"><style>${cardCss}</style>${html}</div></foreignObject></svg>`
   const img = new Image()

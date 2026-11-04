@@ -8,7 +8,7 @@ import { LAYOUT_NAME } from '../types/domain'
 
 export default function DownloadView({ wf }: { wf: Workflow }) {
   const n = wf.cards.length
-  const un = wf.cards.filter((c) => c.status !== 'ok').length
+  const un = wf.cards.filter((c) => c.sids.length && c.status !== 'ok').length
   const [msg, setMsg] = useState('')
   const key = wf.document!.document_id
   const sourceName = wf.document!.source.source_name ?? undefined
