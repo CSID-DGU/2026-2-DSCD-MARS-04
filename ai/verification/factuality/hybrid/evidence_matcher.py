@@ -1,4 +1,3 @@
-
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -89,10 +88,7 @@ def extract_keywords(text: str) -> frozenset[str]:
         and token.form.lower() not in STOPWORDS
     }
 
-    keywords.update(
-        number.replace(",", "")
-        for number in NUMBER_PATTERN.findall(text)
-    )
+    keywords.update(number.replace(",", "") for number in NUMBER_PATTERN.findall(text))
 
     return frozenset(keywords)
 
@@ -133,10 +129,7 @@ def match_evidence(
     if not 0 <= min_score <= 1:
         raise ValueError("min_score는 0~1 범위여야 합니다.")
 
-    evidence_by_group = {
-        group.group_id: split_group_summary(group)
-        for group in groups
-    }
+    evidence_by_group = {group.group_id: split_group_summary(group) for group in groups}
 
     results = []
 
