@@ -23,8 +23,3 @@ const CardFrame = forwardRef<HTMLDivElement, CardFrameProps>(function CardFrame(
 
 export default CardFrame
 
-/** 카드 본문이 영역을 넘쳤는지(렌더된 DOM 기준) */
-export function overflowed(root: HTMLElement | null): boolean {
-  const el = root?.querySelector<HTMLElement>('.cn-content')
-  return !!el && el.scrollHeight > el.clientHeight + 2
-}
