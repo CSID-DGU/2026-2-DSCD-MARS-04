@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -65,6 +65,9 @@ class SelectionIn(BaseModel):
 
 class CheckIn(BaseModel):
     card_ids: list[str] | None = None
+    # card: 그룹 요약 ↔ 카드 문구 (사실성+완전성+피드백 통합)
+    # summary: 원문 문장 ↔ 문구 (숫자 규칙+LLM)
+    stage: Literal["card", "summary"] = "card"
 
 
 def register(app: FastAPI) -> None:
@@ -170,19 +173,27 @@ def register(app: FastAPI) -> None:
         body: Annotated[CheckIn | None, Body()] = None,
     ):
         job, card_ids = wf.start_check(store, document_id, body.card_ids if body else None)
-        tasks.add_task(
-            wf.run_job, store, job, wf.check_work(store, pipeline, document_id, card_ids)
-        )
+        stage = body.stage if body else "card"
+        work = wf.summary_check_work if stage == "summary" else wf.check_work
+        tasks.add_task(wf.run_job, store, job, work(store, pipeline, document_id, card_ids))
         return ok("카드 검사를 시작했습니다.", {"job_id": job["job_id"], "card_ids": card_ids}, 202)
 
     @app.post(
         f"{BASE}/documents/{{document_id}}/cards/{{card_id}}/repair",
         tags=["Check"],
-        summary="AI 수정안 생성 (준비 중)",
+        summary="AI 수정안 조회",
     )
     def repair(document_id: str, card_id: str, store: StoreDep):
-        wf.find_card(store, document_id, card_id)
-        raise ApiError(501, "수정안 기능은 아직 준비되지 않았습니다.")
+        """최근 카드 단계 검사의 필드별 수정안(suggested_text)을 돌려준다. 별도 LLM 호출 없음."""
+        card = wf.find_card(store, document_id, card_id)
+        view = wf.card_view(store, card)
+        fields = (view.get("check") or {}).get("repair_fields")
+        if not fields:
+            raise ApiError(404, "이 카드 버전에 대한 수정안이 없습니다. 먼저 검사를 실행하세요.")
+        return ok(
+            "수정안을 조회했습니다.",
+            {"card_id": card_id, "expected_version": card["version"], "fields": fields},
+        )
 
     @app.get(
         f"{BASE}/documents/{{document_id}}/record", tags=["Export"], summary="검수 기록 내보내기"

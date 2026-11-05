@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 CHECKER_NAME = "summary-consistency@8c9242c"
+CARD_CHECKER_NAME = "card-factuality-llm+completeness+feedback"
 
 
 class Pipeline(Protocol):
@@ -20,7 +21,16 @@ class Pipeline(Protocol):
 
     def generate(self, document_id: str, groups: list[dict]) -> list[dict]: ...
 
-    def check(self, items: list[dict]) -> list[dict]: ...
+    def check(self, items: list[dict]) -> list[dict]:
+        """요약 단계: 원문 문장 ↔ 그룹 요약 (서준 consistency 검사기)."""
+        ...
+
+    def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
+        """카드 단계: 그룹 요약 ↔ 카드 문구 (수연 사실성 + 완전성 + 피드백 통합).
+
+        반환: {"status", "model", "cards": {card_id: {...}}, "feedback": [...], "unchecked": [...]}
+        """
+        ...
 
 
 class RepoPipeline:
@@ -68,3 +78,37 @@ class RepoPipeline:
         from ai.verification.consistency.checker import check_consistency
 
         return check_consistency(items, by_sentence=True, client=self.client)["results"]
+
+    def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
+        from dataclasses import asdict
+
+        from ai.verification.completeness.llm.llm_checker import check_llm_completeness
+        from ai.verification.factuality.llm.llm_checker import check_llm_factuality
+        from ai.verification.feedback.merger import merge_feedback
+        from data_pipeline.schemas.card import Card, FinalCardOutput
+        from data_pipeline.schemas.group import Group
+
+        models = [Group.model_validate(g) for g in groups]
+        final = FinalCardOutput(
+            document_id=document_id, cards=[Card.model_validate(c) for c in cards]
+        )
+        factuality = check_llm_factuality(models, final, client=self.client)
+        completeness = check_llm_completeness(models, final, client=self.client)
+        feedback = merge_feedback(factuality, completeness, client=self.client)
+        return {
+            "status": feedback.status,
+            "model": factuality.model,
+            "cards": {
+                c.card_id: {"status": c.status, "fields": [asdict(f) for f in c.fields]}
+                for c in factuality.cards
+            },
+            "completeness": [r.model_dump() for r in completeness.results],
+            "feedback": [i.model_dump() for i in feedback.items],
+            "unchecked": list(feedback.unchecked),
+            "input_tokens": factuality.input_tokens
+            + completeness.input_tokens
+            + feedback.input_tokens,
+            "output_tokens": factuality.output_tokens
+            + completeness.output_tokens
+            + feedback.output_tokens,
+        }
