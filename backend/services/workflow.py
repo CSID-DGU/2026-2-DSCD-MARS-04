@@ -262,6 +262,7 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
         sequence = (
             [(cover, "template")] + [(c, "llm") for c in body_cards] + [(closing, "template")]
         )
+        stage("images")
         for order, (raw, by) in enumerate(sequence, 1):
             fields = CardGeneration.model_validate(raw).model_dump()
             card_id = f"C{order}"
@@ -274,6 +275,7 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
                     "order": order,
                     "version": 1,
                     "generated_by": by,
+                    "image": _photo(pipeline, fields["image_query"]),
                 }
             )
         store.replace_cards(document_id, cards)
@@ -281,6 +283,14 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
         store.save_document(doc)
 
     return work
+
+
+def _photo(pipeline: Pipeline, query: str) -> dict | None:
+    """사진 검색 실패는 카드 생성을 막지 않는다. 없으면 None(프론트는 기본 배경)."""
+    try:
+        return pipeline.photo(query)
+    except Exception as exc:  # noqa: BLE001
+        return {"stage": "none", "query": query, "message": f"사진 검색 실패: {type(exc).__name__}"}
 
 
 def over_limit(card: dict, layouts: dict) -> list[str]:
