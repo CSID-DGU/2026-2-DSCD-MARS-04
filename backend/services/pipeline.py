@@ -71,7 +71,14 @@ class RepoPipeline:
 
         models = [Group.model_validate(g) for g in groups]
         layouts = select_layouts(document_id, models, client=self.client)
-        result = generate_cards(document_id, models, layouts.layout_selections, client=self.client)
+        # 에이전트가 표지·마무리까지 생성한다(dev 17e1367). 본문만이 아니라 전체를 받는다.
+        result = generate_cards(
+            document_id,
+            models,
+            layouts.layout_selections,
+            client=self.client,
+            include_boundary_cards=True,
+        )
         return [c.model_dump() for c in result.cards]
 
     def photo(self, query: str, exclude: set[str]) -> dict | None:
