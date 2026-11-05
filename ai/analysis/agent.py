@@ -113,7 +113,18 @@ def _analyze(document_id: str, text: str, record: dict, client=None) -> dict:
 
     record["stage"] = "output"
     groups = [GroupAnalysis.model_validate(group) for group in summary["groups"]]
-    return {"document_id": document_id, "groups": [group.model_dump() for group in groups]}
+    # 호출자(백엔드)가 문장 분리를 다시 돌리거나 요약 검사를 다시 하지 않도록,
+    # 분석에 쓴 문장 목록과 요약 단계 검사 결과(재요약·원문 대체)를 함께 돌려준다.
+    return {
+        "document_id": document_id,
+        "groups": [group.model_dump() for group in groups],
+        "sentences": sentences,
+        "summary_check": {
+            "retried_group_ids": summary["retried_group_ids"],
+            "fallback_group_ids": summary["fallback_group_ids"],
+            "fallback_reasons": summary["fallback_reasons"],
+        },
+    }
 
 
 def analyze(document_id: str, text: str, *, log_path: Path | None = None, client=None) -> dict:
@@ -128,7 +139,10 @@ def analyze(document_id: str, text: str, *, log_path: Path | None = None, client
     }
     try:
         result = _analyze(document_id, text, record, client)
-        record.update(status="success", result=result)
+        # 로그에는 원문 문장을 남기지 않는다. sentences는 호출자에게만 돌려준다.
+        record.update(
+            status="success", result={k: v for k, v in result.items() if k != "sentences"}
+        )
         return result
     except Exception as exc:  # 오류 메시지에는 원문이나 키가 섞일 수 있어 종류와 단계만 남긴다
         record["error"] = {"type": type(exc).__name__, "stage": record.get("stage")}
