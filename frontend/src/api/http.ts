@@ -9,13 +9,26 @@ interface Envelope<T> {
 }
 
 /** 백엔드 검사 결과는 problems[{quote, reason}] 이고 summary 가 없다. 화면이 쓰는 issues 모양으로 맞춘다. */
+/**
+ * 백엔드 검사 결과를 화면 모양으로 맞춘다.
+ * - 카드 단계(기본): issues·completeness·repair_fields 가 온다 → repair_fields 는 카드의 repair(AI 수정안)로
+ * - 요약 단계(stage=summary): problems[{quote, reason}] 만 온다 → issues 로 변환
+ */
 function normalizeCard(c: Card & { check?: (Card['check'] & { problems?: { quote: string; reason: string }[] }) | null }): Card {
   const check = c.check
-  if (!check) return c
+  if (!check) return { ...c, repair: null }
   const problems = check.problems ?? []
   const issues = check.issues ?? problems.map((p) => ({ type: '원문과 다름', source_span: '', card_span: p.quote, explanation: p.reason }))
-  const summary = check.summary ?? (check.verdict === 'ok' ? '카드 문구가 근거 원문으로 뒷받침돼요.' : `원문과 다른 부분이 ${issues.length}곳 있어요.`)
-  return { ...c, check: { ...check, issues, summary } }
+  const completeness = check.completeness ?? []
+  const summary =
+    check.summary ??
+    (check.verdict === 'ok'
+      ? completeness.length
+        ? '문구는 요약과 맞지만 필수 정보 반영을 확인해 주세요.'
+        : '카드 문구가 근거 요약으로 뒷받침돼요.'
+      : `요약과 다른 부분이 ${issues.length}곳 있어요.`)
+  const repair = check.repair_fields ? { fields: check.repair_fields, check: { ...check, issues, summary } } : null
+  return { ...c, check: { ...check, issues, completeness, summary }, repair }
 }
 
 export function createHttpApi(base: string): CardSyncApi {

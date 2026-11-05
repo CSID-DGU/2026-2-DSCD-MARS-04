@@ -80,6 +80,24 @@ export interface CheckIssue {
   source_span: string
   card_span: string
   explanation: string
+  field_path?: string
+  suggested_text?: string | null
+}
+
+/** 완전성 검사: 선택한 그룹의 필수 정보가 카드 전체에 반영됐는지 */
+export interface CompletenessIssue {
+  type: string
+  fact_id: string
+  explanation: string
+  missing_elements: string[]
+}
+
+export interface FeedbackItem {
+  title: string
+  category: 'ERROR' | 'OMISSION' | 'REVIEW'
+  description: string
+  suggested_text: string | null
+  card_ids: string[]
 }
 
 export interface CheckResult {
@@ -92,6 +110,11 @@ export interface CheckResult {
   lint?: string[]
   by?: string | null
   checker?: string
+  /** 카드 단계 검사(백엔드)에서만 */
+  factuality_status?: string
+  completeness?: CompletenessIssue[]
+  repair_fields?: Partial<CardFields> | null
+  feedback?: FeedbackItem[]
 }
 
 export interface Repair {

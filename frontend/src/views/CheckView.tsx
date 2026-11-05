@@ -64,8 +64,35 @@ function Row({ card, i, n, wf }: { card: Card; i: number; n: number; wf: Workflo
         ) : (
           <p className="note">{ck?.summary ?? ''}</p>
         )}
+        {live && ck.completeness?.length ? (
+          <ol className="notes">
+            {ck.completeness.map((x, j) => (
+              <li key={`c${j}`}>
+                <b>{x.type}</b>
+                {x.explanation}
+                {x.missing_elements?.length ? ` (빠진 요소: ${x.missing_elements.join(', ')})` : ''}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+        {live && ck.feedback?.length ? (
+          <ul className="notes">
+            {ck.feedback.map((f, j) => (
+              <li key={`f${j}`}>
+                <b>{f.title}</b>
+                {f.description}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {live && ck.lint?.length ? <p className="note warntext">글자 수 한도를 넘었어요 · {ck.lint.map((x) => x.replace(/^C\d+\./, '')).join(', ')}</p> : null}
-        {live && ck.by ? <p className="note small muted">판정: {ck.by === 'rule' ? '숫자 규칙' : 'LLM'}{ck.checker ? ` · ${ck.checker}` : ''}</p> : null}
+        {live && ck.by ? (
+          <p className="note small muted">
+            판정: {ck.by === 'rule' ? '숫자 규칙' : 'LLM'}
+            {ck.factuality_status ? ` · ${ck.factuality_status}` : ''}
+            {ck.checker ? ` · ${ck.checker}` : ''}
+          </p>
+        ) : null}
         <div className="acts">
           {canRepair ? (
             <button className="primary" onClick={() => wf.applyRepair(card.card_id)}>
