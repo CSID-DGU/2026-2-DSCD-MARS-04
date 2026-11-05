@@ -74,6 +74,11 @@ class RepoPipeline:
         result = generate_cards(document_id, models, layouts.layout_selections, client=self.client)
         return [c.model_dump() for c in result.cards]
 
+    def photo(self, query: str) -> dict | None:
+        from backend.services.unsplash import search_photo
+
+        return search_photo(query)
+
     def check(self, items: list[dict]) -> list[dict]:
         from ai.verification.consistency.checker import check_consistency
 

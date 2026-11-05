@@ -52,6 +52,15 @@ class FakePipeline:
             )
         return cards
 
+    def photo(self, query):
+        return {
+            "stage": "unsplash",
+            "id": "x",
+            "query": query,
+            "data": "https://img/x.jpg",
+            "author": "A",
+        }
+
     def check_cards(self, document_id, groups, cards):
         """수연 검사기 모양: 카드별 필드 판정 + 완전성 + 피드백. 999가 있으면 왜곡, 수정안 제시."""
         self.card_inputs = (groups, cards)
@@ -235,6 +244,7 @@ def test_cards_generated_with_cover_and_closing(make_client):
     assert [c["layout_id"] for c in cards] == ["cover", "body", "body", "closing"]
     assert [c["card_id"] for c in cards] == ["C1", "C2", "C3", "C4"]
     assert [c["generated_by"] for c in cards] == ["template", "llm", "llm", "template"]
+    assert cards[1]["image"]["query"] == "savings" and cards[1]["image"]["stage"] == "unsplash"
     assert cards[0]["group_id"] is None and cards[1]["group_id"] == "G1"
     assert all(
         c["version"] == 1 and c["status"] == "unchecked" and c["check"] is None for c in cards
@@ -532,3 +542,47 @@ def test_summary_check_failure_does_not_fail_analysis(make_client):
     doc_id = analyzed(client)
     groups = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["groups"]
     assert all(g["summary_check"]["verdict"] == "error" for g in groups)
+
+
+def test_photo_failure_keeps_cards(make_client):
+    class NoPhoto(FakePipeline):
+        def photo(self, query):
+            raise RuntimeError("unsplash down")
+
+    client, _ = make_client(NoPhoto())
+    doc_id = generated(client)
+    cards = client.get(f"{BASE}/documents/{doc_id}/cards").json()["data"]["cards"]
+    assert len(cards) == 4 and cards[1]["image"]["stage"] == "none"
+
+
+def test_unsplash_search_shapes_card_image(monkeypatch):
+    from backend.services import unsplash
+
+    calls = []
+
+    def fake_get(url, key):
+        calls.append(url)
+        if "download_location" in url or "/download" in url:
+            return {}
+        return {
+            "results": [
+                {
+                    "id": "abc",
+                    "urls": {"regular": "https://images.unsplash.com/abc"},
+                    "alt_description": "pig bank",
+                    "links": {
+                        "html": "https://unsplash.com/photos/abc",
+                        "download_location": "https://api.unsplash.com/photos/abc/download",
+                    },
+                    "user": {"name": "Andre", "links": {"html": "https://unsplash.com/@andre"}},
+                }
+            ]
+        }
+
+    monkeypatch.setattr(unsplash, "_get", fake_get)
+    img = unsplash.search_photo("piggy bank", key="k")
+    assert img["stage"] == "unsplash" and img["data"].endswith("/abc") and img["author"] == "Andre"
+    assert img["photo_url"].endswith("?utm_source=cardsync&utm_medium=referral")
+    assert any("download" in u for u in calls)  # 다운로드 집계 호출
+    monkeypatch.delenv("UNSPLASH_ACCESS_KEY", raising=False)
+    assert unsplash.search_photo("x", key=None) is None
