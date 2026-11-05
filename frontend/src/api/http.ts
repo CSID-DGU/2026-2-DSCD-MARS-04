@@ -37,9 +37,10 @@ export function createHttpApi(base: string): CardSyncApi {
   async function call<T>(path: string, init?: RequestInit): Promise<T> {
     let res: Response
     try {
+      // 본문이 있을 때만 JSON 헤더를 붙인다. GET에 붙이면 매 요청 CORS 사전 요청(OPTIONS)이 생긴다
       res = await fetch(root + path, {
         ...init,
-        headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+        headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(init?.headers ?? {}) },
       })
     } catch {
       throw new ApiError(0, '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.')

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import CardFrame from '../components/card/CardFrame'
 import Head from '../components/common/Head'
+import { sourceLabel } from '../components/card/util'
 import type { Workflow } from '../hooks/useWorkflow'
 
 export default function PreviewView({ wf }: { wf: Workflow }) {
@@ -24,7 +25,7 @@ export default function PreviewView({ wf }: { wf: Workflow }) {
       <Head title="독자에게는 이렇게 보여요." lead="편집 도구를 내려놓고 순서대로 넘겨 보세요." />
       <div className="reader2">
         <div className="readercard">
-          <CardFrame card={c} index={wf.reader} total={n} width={W} sourceName={s.source_name ?? undefined} />
+          <CardFrame card={c} index={wf.reader} total={n} width={W} />
         </div>
         <div className="bar">
           <button disabled={!wf.reader} onClick={() => wf.setReader(wf.reader - 1)}>
@@ -42,7 +43,7 @@ export default function PreviewView({ wf }: { wf: Workflow }) {
         <div className="caption">
           <b>게시 글에 함께 넣을 출처</b>
           <p>
-            출처: {s.source_name ?? ''} 「{s.title}」{s.date ? `(${s.date})` : ''} · {s.license ?? ''}
+            출처: {sourceLabel(s)} 「{s.title}」{s.date ? `(${s.date})` : ''} · {s.license ?? ''}
           </p>
           <p>
             {photos.map((p, i) => (

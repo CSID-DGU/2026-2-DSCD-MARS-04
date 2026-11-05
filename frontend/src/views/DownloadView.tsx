@@ -4,6 +4,7 @@ import Head from '../components/common/Head'
 import { STATUS } from '../components/common/status'
 import type { Workflow } from '../hooks/useWorkflow'
 import { cardToPngBlob, saveBlob } from '../lib/export'
+import { sourceLabel } from '../components/card/util'
 import { LAYOUT_NAME } from '../types/domain'
 
 export default function DownloadView({ wf }: { wf: Workflow }) {
@@ -11,7 +12,7 @@ export default function DownloadView({ wf }: { wf: Workflow }) {
   const un = wf.cards.filter((c) => c.sids.length && c.status !== 'ok').length
   const [msg, setMsg] = useState('')
   const key = wf.document!.document_id
-  const sourceName = wf.document!.source.source_name ?? undefined
+  const sourceName = sourceLabel(wf.document!.source)
 
   const png = async (i: number) => {
     const c = wf.cards[i]

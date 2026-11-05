@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { SourceContext } from './components/card/SourceContext'
+import { sourceLabel } from './components/card/util'
 import Loading from './components/common/Loading'
 import { STEP_NAMES, useWorkflow, type Step } from './hooks/useWorkflow'
 import CheckView from './views/CheckView'
@@ -38,7 +40,7 @@ export default function App() {
   const canShow = wf.step === 0 || (wf.document && (wf.step === 1 || wf.cards.length))
 
   return (
-    <>
+    <SourceContext.Provider value={sourceLabel(wf.document?.source)}>
       <header className="app-header">
         <a
           className="brand"
@@ -74,6 +76,6 @@ export default function App() {
           <InputView wf={wf} />
         )}
       </main>
-    </>
+    </SourceContext.Provider>
   )
 }

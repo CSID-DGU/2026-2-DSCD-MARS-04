@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import Head from '../components/common/Head'
+import { sourceLabel } from '../components/card/util'
 import type { Workflow } from '../hooks/useWorkflow'
 
 export default function InputView({ wf }: { wf: Workflow }) {
   const [url, setUrl] = useState(wf.document?.source.source_url ?? '')
   const [text, setText] = useState('')
+  const [sourceName, setSourceName] = useState(wf.document?.source.source_name ?? '')
   const [picked, setPicked] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const mock = wf.mode === 'mock'
@@ -31,7 +33,8 @@ export default function InputView({ wf }: { wf: Workflow }) {
       return
     }
     if (!t) return setErr('원문 본문을 붙여넣어 주세요. (URL 자동 수집은 아직 없어요)')
-    await wf.analyze({ text: t, source_url: u || null, source_name: u.includes('korea.kr') ? '대한민국 정책브리핑' : null })
+    const name = sourceName.trim() || sourceLabel({ source_url: u || null })
+    await wf.analyze({ text: t, source_url: u || null, source_name: name === '원문' ? null : name })
   }
 
   return (
@@ -46,6 +49,10 @@ export default function InputView({ wf }: { wf: Workflow }) {
               불러오기
             </button>
           </div>
+          <label htmlFor="source-name" style={{ marginTop: 12 }}>
+            출처 이름 <span className="muted small">비우면 주소에서 추정해요 ({sourceLabel({ source_url: url || null })})</span>
+          </label>
+          <input type="text" id="source-name" placeholder="예: 대한민국 정책브리핑, 아산시청" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
           <label htmlFor="text" style={{ marginTop: 12 }}>
             원문 본문
           </label>
