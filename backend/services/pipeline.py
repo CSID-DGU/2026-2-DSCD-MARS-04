@@ -8,22 +8,21 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-CHECKER_NAME = "summary-consistency@8c9242c"
 CARD_CHECKER_NAME = "card-factuality-llm+completeness+feedback"
 
 
 class Pipeline(Protocol):
-    def split(self, text: str) -> list[dict]: ...
+    def analyze(self, document_id: str, text: str) -> dict:
+        """분석 에이전트(서준). 문장 분리 → 그룹화 → 요약 → 요약 검사(재요약·원문 대체)까지 한다.
 
-    def analyze(self, document_id: str, text: str) -> list[dict]: ...
+        반환: {"document_id", "groups": [...], "sentences": [...], "summary_check": {...}}
+        문장 분리와 요약 검사는 이 안에서 끝나므로 백엔드가 다시 돌리지 않는다.
+        """
+        ...
 
     def titles(self, document_id: str, groups: list[dict]) -> list[dict]: ...
 
     def generate(self, document_id: str, groups: list[dict]) -> list[dict]: ...
-
-    def check(self, items: list[dict]) -> list[dict]:
-        """요약 단계: 원문 문장 ↔ 그룹 요약 (서준 consistency 검사기)."""
-        ...
 
     def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
         """카드 단계: 그룹 요약 ↔ 카드 문구 (수연 사실성 + 완전성 + 피드백 통합).
@@ -39,15 +38,10 @@ class RepoPipeline:
     def __init__(self, client: Any | None = None):
         self.client = client
 
-    def split(self, text: str) -> list[dict]:
-        from data_pipeline.extraction.llm.sentence_splitter import split_sentences
-
-        return split_sentences(text)
-
-    def analyze(self, document_id: str, text: str) -> list[dict]:
+    def analyze(self, document_id: str, text: str) -> dict:
         from ai.analysis.agent import analyze
 
-        return analyze(document_id, text, client=self.client)["groups"]
+        return analyze(document_id, text, client=self.client)
 
     def titles(self, document_id: str, groups: list[dict]) -> list[dict]:
         from ai.generation.group_merger import merge_group_results
@@ -85,11 +79,6 @@ class RepoPipeline:
         from backend.services.unsplash import search_photo
 
         return search_photo(query, exclude=exclude)
-
-    def check(self, items: list[dict]) -> list[dict]:
-        from ai.verification.consistency.checker import check_consistency
-
-        return check_consistency(items, by_sentence=True, client=self.client)["results"]
 
     def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
         from dataclasses import asdict

@@ -76,10 +76,10 @@ def test_job_stages_and_request_id(client_and_logs):
     rid = res.headers["X-Request-ID"]
     job = client.get(f"{BASE}/jobs/{res.json()['data']['job_id']}").json()["data"]
     assert job["request_id"] == rid
-    assert [s["name"] for s in job["stages"]] == ["start", "split", "analysis", "titles"]
+    assert [s["name"] for s in job["stages"]] == ["start", "analysis", "titles"]
     assert all(s["status"] == "ok" and s["duration_ms"] >= 0 for s in job["stages"])
     stage_logs = [r for r in records if r["event"] == "job_stage"]
-    assert [r["stage"] for r in stage_logs] == ["start", "split", "analysis", "titles"]
+    assert [r["stage"] for r in stage_logs] == ["start", "analysis", "titles"]
     assert all(r["request_id"] == rid for r in stage_logs)
     (finished,) = [r for r in records if r["event"] == "job_finished"]
     assert finished["status"] == "succeeded" and finished["request_id"] == rid
