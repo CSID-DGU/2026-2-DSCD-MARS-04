@@ -4,6 +4,8 @@
  * (AX-Surfers card-news-plugin 템플릿을 참고해 손봄, MIT)
  */
 import type { Card, CardImage } from '../../types/domain'
+import { useContext } from 'react'
+import { SourceContext } from './SourceContext'
 import { credit } from './util'
 import '../../styles/card.css'
 
@@ -57,7 +59,8 @@ export interface CardTemplateProps {
 }
 
 export default function CardTemplate({ card, index, total, sourceName }: CardTemplateProps) {
-  const meta = <Meta card={card} index={index} total={total} sourceName={sourceName} />
+  const fromContext = useContext(SourceContext)
+  const meta = <Meta card={card} index={index} total={total} sourceName={sourceName ?? fromContext} />
   switch (card.layout_id) {
     case 'cover':
       return (

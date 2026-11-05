@@ -48,18 +48,18 @@ export interface CardSyncApi {
   record(documentId: string): Promise<ExportRecord>
 }
 
-/** 작업이 끝날 때까지 폴링한다. onStage로 단계명을 알려준다. */
-export async function waitJob(
-  api: CardSyncApi,
-  jobId: string,
-  onStage?: (stage: string | null) => void,
-  intervalMs = 700,
-): Promise<Job> {
+/**
+ * 작업이 끝날 때까지 폴링한다. 작업은 20~30초 걸리므로 처음 15초는 1.5초, 그 뒤로는 3초 간격.
+ * 대기 화면은 시간 기준으로 진행하므로 폴링 간격과 무관하다.
+ */
+export async function waitJob(api: CardSyncApi, jobId: string, onStage?: (stage: string | null) => void): Promise<Job> {
+  const started = Date.now()
   for (;;) {
     const job = await api.getJob(jobId)
     onStage?.(job.stage)
     if (job.status === 'succeeded') return job
     if (job.status === 'failed') throw new ApiError(500, `작업 실패 (${job.error?.stage ?? '?'}: ${job.error?.type ?? '?'})`)
-    await new Promise((r) => setTimeout(r, intervalMs))
+    const wait = Date.now() - started < 15_000 ? 1500 : 3000
+    await new Promise((r) => setTimeout(r, wait))
   }
 }
