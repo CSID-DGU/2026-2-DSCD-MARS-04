@@ -24,16 +24,18 @@ def _get(url: str, key: str) -> Any:
         return json.loads(res.read().decode("utf-8"))
 
 
-def search_photo(query: str, *, key: str | None = None) -> dict | None:
-    """검색 첫 장을 카드 image 필드 모양으로 돌려준다. 키가 없거나 결과가 없으면 None."""
+def search_photo(
+    query: str, *, key: str | None = None, exclude: set[str] | frozenset[str] = frozenset()
+) -> dict | None:
+    """검색 결과 중 exclude(이미 쓴 사진 ID)에 없는 첫 장. 키가 없거나 결과가 없으면 None."""
     key = key or os.getenv("UNSPLASH_ACCESS_KEY")
     if not key or not query.strip():
         return None
     params = urlencode(
-        {"query": query, "per_page": 1, "orientation": "portrait", "content_filter": "high"}
+        {"query": query, "per_page": 10, "orientation": "portrait", "content_filter": "high"}
     )
     data = _get(f"{API}/search/photos?{params}", key)
-    results = data.get("results") or []
+    results = [r for r in data.get("results") or [] if r.get("id") not in exclude]
     if not results:
         return None
     p = results[0]
