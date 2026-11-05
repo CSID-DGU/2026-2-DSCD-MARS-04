@@ -52,12 +52,14 @@ class FakePipeline:
             )
         return cards
 
-    def photo(self, query):
+    def photo(self, query, exclude):
+        # 검색어가 같아도 이미 쓴 ID는 건너뛰는지 보려고 후보를 고정한다
+        pick = next(i for i in ("p1", "p2", "p3", "p4", "p5", "p6") if i not in exclude)
         return {
             "stage": "unsplash",
-            "id": "x",
+            "id": pick,
             "query": query,
-            "data": "https://img/x.jpg",
+            "data": f"https://img/{pick}.jpg",
             "author": "A",
         }
 
@@ -245,6 +247,8 @@ def test_cards_generated_with_cover_and_closing(make_client):
     assert [c["card_id"] for c in cards] == ["C1", "C2", "C3", "C4"]
     assert [c["generated_by"] for c in cards] == ["template", "llm", "llm", "template"]
     assert cards[1]["image"]["query"] == "savings" and cards[1]["image"]["stage"] == "unsplash"
+    ids = [c["image"]["id"] for c in cards]
+    assert len(ids) == len(set(ids))  # 같은 검색어(savings)여도 카드마다 다른 사진
     assert cards[0]["group_id"] is None and cards[1]["group_id"] == "G1"
     assert all(
         c["version"] == 1 and c["status"] == "unchecked" and c["check"] is None for c in cards
@@ -546,7 +550,7 @@ def test_summary_check_failure_does_not_fail_analysis(make_client):
 
 def test_photo_failure_keeps_cards(make_client):
     class NoPhoto(FakePipeline):
-        def photo(self, query):
+        def photo(self, query, exclude):
             raise RuntimeError("unsplash down")
 
     client, _ = make_client(NoPhoto())
@@ -586,3 +590,6 @@ def test_unsplash_search_shapes_card_image(monkeypatch):
     assert any("download" in u for u in calls)  # 다운로드 집계 호출
     monkeypatch.delenv("UNSPLASH_ACCESS_KEY", raising=False)
     assert unsplash.search_photo("x", key=None) is None
+    assert (
+        unsplash.search_photo("piggy bank", key="k", exclude={"abc"}) is None
+    )  # 이미 쓴 사진만 있으면 없음
