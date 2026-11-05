@@ -80,6 +80,7 @@ def run_pipeline(
         layouts.layout_selections,
         client=client,
         log_path=output_dir / "generation.jsonl",
+        include_boundary_cards=True,
     )
     save_result(output_dir, "generation", generated)
     final_cards = FinalCardOutput(
