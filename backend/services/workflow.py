@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from backend.core.responses import ApiError
 from backend.core.store import Store, new_id, now
-from backend.services.pipeline import CHECKER_NAME, Pipeline
+from backend.services.pipeline import CARD_CHECKER_NAME, CHECKER_NAME, Pipeline
 from data_pipeline.schemas.card import CardGeneration
 
 LAYOUT_FIELDS = ("title", "category", "body", "items", "left", "right", "cta")
@@ -325,6 +325,141 @@ def start_check(
 
 
 def check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: list[str]):
+    """카드 단계 검사: 그룹 요약 ↔ 카드 문구. 수연 사실성·완전성·피드백 통합(pipeline.check_cards).
+
+    완전성은 그룹의 카드 전체를 봐야 하므로 그룹 카드 전부를 넘기고, 판정은 card_ids에만 저장한다.
+    """
+
+    def work(stage):
+        doc = require_document(store, document_id)
+        all_cards = store.list_cards(document_id)
+        versions = {c["card_id"]: c["version"] for c in all_cards}
+        selected = set(doc["required_group_ids"])
+        groups = [g for g in doc["groups"] if g["group_id"] in selected]
+        stage("check")
+        result = pipeline.check_cards(document_id, groups, [_card_input(c) for c in all_cards])
+        checked_at = now()
+        by_card = result.get("cards", {})
+        completeness = result.get("completeness", [])
+        feedback = result.get("feedback", [])
+        for cid in card_ids:
+            card = store.get_card(f"{document_id}:{cid}")
+            if card is None or card["version"] != versions[cid]:
+                continue  # 검사 중에 문구가 바뀌면 이 판정은 저장하지 않는다
+            store.save_check(
+                card["db_id"],
+                _card_check(card, by_card.get(cid), completeness, feedback, result, checked_at),
+            )
+
+    return work
+
+
+def _card_input(card: dict) -> dict:
+    keys = ("card_id", "group_id", "layout_id", "sids", "image_query", *LAYOUT_FIELDS)
+    return {k: card.get(k) for k in keys}
+
+
+FACT_VERDICT = {
+    "SUPPORTED": "ok",
+    "NON_ASSERTIVE": "ok",
+    "POSSIBLE_DISTORTION": "bad",
+    "INSUFFICIENT_EVIDENCE": "warn",
+    "UNCERTAIN": "warn",
+    "NOT_CHECKED": "ok",
+}
+FACT_LABEL = {
+    "POSSIBLE_DISTORTION": "의미 왜곡 가능",
+    "INSUFFICIENT_EVIDENCE": "근거 부족",
+    "UNCERTAIN": "판단 보류",
+}
+COVER_LABEL = {
+    "MISSING": "필수 정보 누락",
+    "PARTIALLY_COVERED": "일부만 반영",
+    "DISTORTED": "필수 정보 왜곡",
+    "UNCERTAIN": "반영 여부 불확실",
+}
+
+
+def _card_check(card, fact, completeness, feedback, result, checked_at) -> dict:
+    """수연 검사 결과를 카드 한 장의 check 레코드로 바꾼다. 수정안은 필드별 suggested_text."""
+    fact = fact or {"status": "NOT_CHECKED", "fields": []}
+    issues, suggested = [], {}
+    for f in fact["fields"]:
+        if f["status"] in FACT_LABEL:
+            issues.append(
+                {
+                    "type": f.get("error_type") or FACT_LABEL[f["status"]],
+                    "field_path": f["field_path"],
+                    "card_span": f["card_text"],
+                    "source_span": f.get("evidence") or "",
+                    "explanation": f.get("reason") or "",
+                    "suggested_text": f.get("suggested_text"),
+                }
+            )
+        if f.get("suggested_text"):
+            suggested[f["field_path"]] = f["suggested_text"]
+    cid = card["card_id"]
+    cover = [
+        c
+        for c in completeness
+        if cid in c.get("matched_card_ids", []) or c.get("group_id") == card.get("group_id")
+    ]
+    cover_issues = [
+        {
+            "type": COVER_LABEL[c["status"]],
+            "fact_id": c["fact_id"],
+            "explanation": c.get("reason") or "",
+            "missing_elements": c.get("missing_elements", []),
+        }
+        for c in cover
+        if c["status"] in COVER_LABEL
+    ]
+    verdict = FACT_VERDICT.get(fact["status"], "warn")
+    if verdict == "ok" and any(c["status"] in ("MISSING", "DISTORTED") for c in cover):
+        verdict = "warn"
+    return {
+        "card_id": cid,
+        "card_version": card["version"],
+        "verdict": verdict,
+        "by": "llm",
+        "factuality_status": fact["status"],
+        "issues": issues,
+        "completeness": cover_issues,
+        "repair_fields": _repair_fields(card, suggested),
+        "feedback": [i for i in feedback if cid in i.get("card_ids", [])],
+        "checker": f"{CARD_CHECKER_NAME}/{result.get('model', '')}",
+        "checked_at": checked_at,
+    }
+
+
+def _repair_fields(card: dict, suggested: dict[str, str]) -> dict | None:
+    """field_path(title, body, items[2], left, right)별 수정안을 PATCH 가능한 필드 묶음으로."""
+    if not suggested:
+        return None
+    out: dict[str, Any] = {}
+    for path, text in suggested.items():
+        if path in ("title", "body", "cta", "category"):
+            out[path] = text
+        elif path.startswith("items["):
+            items = list(out.get("items") or card.get("items") or [])
+            i = int(path[6:-1])
+            if 0 <= i < len(items):
+                items[i] = text
+                out["items"] = items
+        elif path in ("left", "right"):
+            side = dict(card.get(path) or {})
+            label, _, value = text.partition(" — ")
+            if value:
+                side.update(label=label.strip(), value=value.strip())
+            else:
+                side["value"] = text.strip()
+            out[path] = side
+    return out or None
+
+
+def summary_check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: list[str]):
+    """요약 단계 검사(원문 문장 ↔ 문구)를 카드 문구에 적용하는 이전 방식. consistency 검사기."""
+
     def work(stage):
         doc = require_document(store, document_id)
         order = {s["sentence_id"]: i for i, s in enumerate(doc["sentences"])}
