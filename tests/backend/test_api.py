@@ -164,7 +164,7 @@ def test_document_analysis_and_selection(make_client):
     doc_id = analyzed(client)
     doc = client.get(f"{BASE}/documents/{doc_id}").json()["data"]
     assert [s["sentence_id"] for s in doc["sentences"]] == ["S1", "S2", "S3", "S4", "S5", "S6"]
-    assert doc["groups"][0] == {
+    assert {k: v for k, v in doc["groups"][0].items() if k != "summary_check"} == {
         "group_id": "G1",
         "sentence_ids": ["S1", "S3", "S4"],
         "summary": "사업 개요",
@@ -508,3 +508,27 @@ def test_repo_check_cards_wiring_with_fake_openai():
     assert body["suggested_text"] == "월 10만 원을 저축합니다."
     assert result["completeness"][0]["fact_id"] == "G1:summary"
     assert result["feedback"][0]["card_ids"] == ["C2"] and result["status"] == "ISSUES_FOUND"
+
+
+def test_summary_check_attached_to_groups(make_client):
+    """분석 끝에 요약 단계 검사(그룹 문장 ↔ 요약)를 돌려 group.summary_check 로 붙인다."""
+    client, pipeline = make_client()
+    doc_id = analyzed(client)
+    groups = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["groups"]
+    assert [g["summary_check"]["verdict"] for g in groups] == ["ok", "ok", "ok"]
+    assert groups[0]["summary_check"]["checker"] == "summary-consistency@8c9242c"
+    sent = {i["item_id"]: i for i in pipeline.check_items}
+    assert sent["G1"]["text"] == "사업 개요"  # text = 그룹 요약
+    stored = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["sentences"]
+    assert sent["G1"]["source"] == " ".join(stored[i]["text"] for i in (0, 2, 3))  # 그룹 문장 원문
+
+
+def test_summary_check_failure_does_not_fail_analysis(make_client):
+    class Broken(FakePipeline):
+        def check(self, items):
+            raise RuntimeError("checker down")
+
+    client, _ = make_client(Broken())
+    doc_id = analyzed(client)
+    groups = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["groups"]
+    assert all(g["summary_check"]["verdict"] == "error" for g in groups)
