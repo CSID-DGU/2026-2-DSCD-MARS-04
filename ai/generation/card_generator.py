@@ -10,8 +10,8 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from ai.generation.card_checks import validate_input, validate_output
-from ai.generation.layout_loader import load_layout_options
+from ai.generation.card_checks import validate_boundary_output, validate_input, validate_output
+from ai.generation.layout_loader import load_all_layout_options
 from data_pipeline.schemas.card import (
     CardGenerationInput,
     CardGenerationOutput,
@@ -43,8 +43,6 @@ def build_group_request(
     request: CardGenerationInput,
     group_id: str,
 ) -> CardGenerationInput:
-    """Create input containing exactly one selected group."""
-
     groups = [group for group in request.groups if group.group_id == group_id]
 
     selections = [
@@ -71,12 +69,45 @@ def extract_group_result(
     )
 
 
+def extract_boundary_result(result: CardGenerationOutput) -> CardGenerationOutput:
+    """Extract cover and closing cards without hiding duplicates or order errors."""
+
+    return CardGenerationOutput(
+        document_id=result.document_id,
+        cards=[card for card in result.cards if card.layout_id in ("cover", "closing")],
+    )
+
+
+def build_boundary_correction_message(
+    request: CardGenerationInput,
+    previous_result: CardGenerationOutput,
+    error: ValueError,
+) -> str:
+    """Request correction of only the invalid cover and closing cards."""
+
+    rules = {
+        option.layout_id: option.fields
+        for option in request.available_layouts
+        if option.layout_id in ("cover", "closing")
+    }
+    return (
+        "표지와 마무리 카드 생성 결과가 검증에 실패했습니다.\n\n"
+        f"검증 오류: {error}\n\n"
+        "선택된 전체 정보 그룹을 바탕으로 cover 1장과 closing 1장만 다시 생성하세요. "
+        "레이아웃 순서는 cover, closing이어야 하며 두 카드의 group_id는 null, sids는 []입니다. "
+        "기사에 없는 사실이나 행동을 추가하지 말고 각 레이아웃의 글자 수를 지키세요.\n\n"
+        f"레이아웃 규칙: {json.dumps(rules, ensure_ascii=False)}\n\n"
+        f"입력: {request.model_dump_json()}\n\n"
+        f"이전 결과: {previous_result.model_dump_json()}\n\n"
+        "CardGenerationOutput 스키마에 맞는 JSON만 반환하세요."
+    )
+
+
 def build_correction_message(
     request: CardGenerationInput,
     previous_result: CardGenerationOutput,
     error: ValueError,
 ) -> str:
-    """Request precise correction of a single invalid group."""
 
     layout_id = request.layout_selections[0].layout_id
 
@@ -129,8 +160,9 @@ def generate_cards(
     model: str | None = None,
     client: OpenAI | None = None,
     log_path: Path | None = None,
+    include_boundary_cards: bool = False,
 ) -> CardGenerationOutput:
-    """Generate cards and correct invalid groups independently."""
+    """Generate body cards and optionally return the generated cover and closing pair."""
 
     started = time.perf_counter()
 
@@ -155,8 +187,15 @@ def generate_cards(
     }
 
     try:
+        all_layouts = load_all_layout_options(LAYOUTS_PATH)
         if available_layouts is None:
-            available_layouts = load_layout_options(LAYOUTS_PATH)
+            available_layouts = all_layouts
+        else:
+            supplied = {option.layout_id for option in available_layouts}
+            available_layouts = [
+                *available_layouts,
+                *(option for option in all_layouts if option.layout_id not in supplied),
+            ]
 
         request = CardGenerationInput(
             document_id=document_id,
@@ -249,7 +288,7 @@ def generate_cards(
         unexpected_group_ids = {
             card.group_id
             for card in initial_result.cards
-            if card.group_id not in expected_group_ids
+            if card.group_id is not None and card.group_id not in expected_group_ids
         }
 
         if unexpected_group_ids:
@@ -258,7 +297,35 @@ def generate_cards(
                 f"{sorted(str(value) for value in unexpected_group_ids)}"
             )
 
-        # 2. 그룹별 검증
+        # 2. 표지·마무리 검증. 실패해도 본문 카드는 다시 생성하지 않는다.
+        boundary_result = extract_boundary_result(initial_result)
+        try:
+            validate_boundary_output(request, boundary_result)
+        except ValueError as initial_error:
+            record["validation_failure_count"] += 1
+            last_error = initial_error
+            for _retry in range(1, MAX_RETRIES + 1):
+                record["stage"] = "boundary_correction"
+                record["correction_count"] += 1
+                boundary_result = extract_boundary_result(
+                    call_model(
+                        build_boundary_correction_message(request, boundary_result, last_error)
+                    )
+                )
+                try:
+                    validate_boundary_output(request, boundary_result)
+                except ValueError as error:
+                    last_error = error
+                    record["validation_failure_count"] += 1
+                else:
+                    break
+            else:
+                raise ValueError(
+                    "표지·마무리 카드가 최대 수정 횟수 후에도 검증에 실패했습니다. "
+                    f"마지막 오류: {last_error}"
+                ) from last_error
+
+        # 3. 그룹별 검증
         record["stage"] = "group_validation"
 
         validated_cards = []
@@ -341,22 +408,33 @@ def generate_cards(
             # 4. 검증을 통과한 그룹은 그대로 확정
             validated_cards.extend(group_result.cards)
 
-        # 5. 그룹 순서대로 최종 카드 결합
+        # 6. 고정 레이아웃 순서대로 표지·본문·마무리 결합
         final_result = CardGenerationOutput(
             document_id=document_id,
-            cards=validated_cards,
+            cards=[boundary_result.cards[0], *validated_cards, boundary_result.cards[1]],
         )
 
         # 6. 전체 결과 최종 검증
         record["stage"] = "final_validation"
 
-        validate_output(request, final_result)
+        validate_output(
+            request,
+            CardGenerationOutput(
+                document_id=document_id,
+                cards=[card for card in final_result.cards if card.group_id is not None],
+            ),
+        )
+        validate_boundary_output(request, extract_boundary_result(final_result))
 
         record["status"] = "success"
         record["stage"] = "completed"
         record["card_count"] = len(final_result.cards)
 
-        return final_result
+        if include_boundary_cards:
+            return final_result
+
+        # 기존 호출부와의 본문 전용 반환 계약은 유지한다.
+        return CardGenerationOutput(document_id=document_id, cards=validated_cards)
 
     except Exception as exc:
         record["error"] = {

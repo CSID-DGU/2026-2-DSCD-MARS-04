@@ -5,7 +5,6 @@ from data_pipeline.schemas.layout import LayoutOption
 
 
 def load_layout_options(json_path: str | Path) -> list[LayoutOption]:
-    """layouts.json에서 그룹별 선택 가능한 레이아웃을 불러온다."""
 
     with Path(json_path).open(encoding="utf-8") as file:
         data = json.load(file)
@@ -20,4 +19,19 @@ def load_layout_options(json_path: str | Path) -> list[LayoutOption]:
             fields=layouts[layout_id]["fields"],
         )
         for layout_id in group_layout_ids
+    ]
+
+
+def load_all_layout_options(json_path: str | Path) -> list[LayoutOption]:
+
+    with Path(json_path).open(encoding="utf-8") as file:
+        layouts = json.load(file)["layouts"]
+
+    return [
+        LayoutOption(
+            layout_id=layout_id,
+            description=definition["when"],
+            fields=definition["fields"],
+        )
+        for layout_id, definition in layouts.items()
     ]

@@ -6,12 +6,11 @@ from data_pipeline.schemas.card import (
 )
 
 BODY_LAYOUTS = {"body", "compare", "checklist", "steps"}
+BOUNDARY_LAYOUTS = ("cover", "closing")
 LAYOUT_FIELDS = {"category", "body", "items", "left", "right", "cta"}
 
 
 def validate_input(request: CardGenerationInput) -> None:
-    """Validate groups and their selected layouts before an API call."""
-
     if not request.document_id.strip():
         raise ValueError("document_id가 비어 있습니다.")
 
@@ -69,7 +68,6 @@ def validate_output(
     request: CardGenerationInput,
     result: CardGenerationOutput,
 ) -> None:
-    """Validate generated cards against layouts.json constraints."""
 
     if result.document_id != request.document_id:
         raise ValueError("출력 document_id가 입력과 다릅니다.")
@@ -155,7 +153,6 @@ def validate_output(
                         f"{group_id}: {field_name} 글자 수 초과 "
                         f"(실제 {len(value)}자 / 최대 {maximum}자)"
                     )
-
                 max_newlines = rules.get("max_newlines")
 
                 if max_newlines is not None and value.count("\n") > max_newlines:
@@ -206,3 +203,44 @@ def validate_output(
 
             else:
                 raise ValueError(f"{group_id}: 지원하지 않는 필드 유형 {field_type}")
+
+
+def validate_boundary_output(
+    request: CardGenerationInput,
+    result: CardGenerationOutput,
+) -> None:
+
+    if result.document_id != request.document_id:
+        raise ValueError("출력 document_id가 입력과 다릅니다.")
+
+    if [card.layout_id for card in result.cards] != list(BOUNDARY_LAYOUTS):
+        raise ValueError("표지 1장과 마무리 1장이 순서대로 필요합니다.")
+
+    option_map = {option.layout_id: option for option in request.available_layouts}
+
+    for card in result.cards:
+        if card.group_id is not None or card.sids:
+            raise ValueError(f"{card.layout_id}: group_id는 null, sids는 빈 목록이어야 합니다.")
+        if card.layout_id not in option_map:
+            raise ValueError(f"정의되지 않은 레이아웃 {card.layout_id}")
+        if not 2 <= len(card.image_query.split()) <= 4:
+            raise ValueError(f"{card.layout_id}: image_query는 2~4단어여야 합니다.")
+
+        rules_by_field = option_map[card.layout_id].fields
+        for field_name in LAYOUT_FIELDS - set(rules_by_field):
+            if getattr(card, field_name) is not None:
+                raise ValueError(f"{card.layout_id}: {field_name}은 사용하지 않는 필드입니다.")
+
+        for field_name, rules in rules_by_field.items():
+            value = getattr(card, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{card.layout_id}: {field_name}이 비어 있습니다.")
+            maximum = rules["max_chars"]
+            if len(value) > maximum:
+                raise ValueError(
+                    f"{card.layout_id}: {field_name} 글자 수 초과 "
+                    f"(실제 {len(value)}자 / 최대 {maximum}자)"
+                )
+            max_newlines = rules.get("max_newlines")
+            if max_newlines is not None and value.count("\n") > max_newlines:
+                raise ValueError(f"{card.layout_id}: {field_name} 줄바꿈 수를 초과했습니다.")
