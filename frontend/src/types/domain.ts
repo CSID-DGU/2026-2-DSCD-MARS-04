@@ -25,12 +25,17 @@ export interface Sentence {
 }
 
 /** 요약 단계 검사(그룹 문장 ↔ 그룹 요약) 결과. 백엔드 분석 단계에서 붙는다. */
+/**
+ * 요약 단계 검사 결과. 분석 에이전트 안에서 검사·재요약·원문 대체까지 끝나고,
+ * 백엔드는 그 결과를 붙이기만 한다(재검사 없음).
+ * - retried: 요약이 검사에 걸려 다시 요약함(그 뒤 통과)
+ * - fallback: 다시 요약해도 걸려 원문 문장을 그대로 씀. reason에 이유
+ */
 export interface SummaryCheck {
-  verdict: 'ok' | 'bad' | 'error'
-  by: 'rule' | 'llm' | null
-  problems: { quote: string; reason: string }[]
+  retried: boolean
+  fallback: boolean
+  reason: string | null
   checker: string
-  error?: string
 }
 
 export interface Group {
