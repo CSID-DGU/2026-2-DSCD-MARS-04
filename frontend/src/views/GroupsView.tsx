@@ -67,13 +67,7 @@ export default function GroupsView({ wf }: { wf: Workflow }) {
                 <span className="sw" />
                 <span>
                   <b>{g.topic || g.headline}</b>
-                  <small>
-                    문장 {g.sentence_ids.length}개
-                    {g.summary_check?.fallback ? ' · 요약 대신 원문 문장을 그대로 썼어요' : g.summary_check?.retried ? ' · 요약을 한 번 다시 만들었어요' : ''}
-                  </small>
-                  {g.summary_check?.fallback && g.summary_check.reason ? (
-                    <small className="error">{g.summary_check.reason}</small>
-                  ) : null}
+                  <small>문장 {g.sentence_ids.length}개</small>
                 </span>
               </label>
             )
