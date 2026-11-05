@@ -257,6 +257,42 @@ def test_cards_generated_with_cover_and_closing(make_client):
     assert again.status_code == 409
 
 
+class BoundaryPipeline(FakePipeline):
+    """에이전트가 표지·마무리까지 돌려주는 경우(dev 17e1367 include_boundary_cards=True)."""
+
+    def generate(self, document_id, groups):
+        body = super().generate(document_id, groups)
+        cover = {
+            "group_id": None,
+            "layout_id": "cover",
+            "sids": [],
+            "title": "청년 저축 지원",
+            "category": "청년 자산형성",
+            "image_query": "young adult saving",
+        }
+        closing = {
+            "group_id": None,
+            "layout_id": "closing",
+            "sids": [],
+            "title": "지금 확인하세요",
+            "body": "조건을 확인하고 신청해 보세요.",
+            "cta": "자세히 보기",
+            "image_query": "checking phone",
+        }
+        return [cover, *body, closing]
+
+
+def test_agent_cover_and_closing_replace_template(make_client):
+    client, _ = make_client(BoundaryPipeline())
+    doc_id = generated(client)
+    cards = client.get(f"{BASE}/documents/{doc_id}/cards").json()["data"]["cards"]
+    assert [c["layout_id"] for c in cards] == ["cover", "body", "body", "closing"]
+    assert [c["generated_by"] for c in cards] == ["llm", "llm", "llm", "llm"]
+    assert cards[0]["category"] == "청년 자산형성" and cards[0]["title"] == "청년 저축 지원"
+    assert cards[3]["cta"] == "자세히 보기"
+    assert cards[0]["image"]["query"] == "young adult saving"
+
+
 def test_edit_check_and_invalidation(make_client):
     client, pipeline = make_client()
     doc_id = generated(client)

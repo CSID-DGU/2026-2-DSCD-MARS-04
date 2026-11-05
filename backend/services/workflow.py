@@ -256,12 +256,16 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
         doc = require_document(store, document_id)
         groups = [g for g in doc["groups"] if g["group_id"] in doc["required_group_ids"]]
         stage("cards")
-        body_cards = pipeline.generate(document_id, groups)
-        cover, closing = _template_cards(doc, groups)
+        generated = pipeline.generate(document_id, groups)
+        # 에이전트가 표지·마무리를 함께 내면 그대로 쓰고, 본문만 오면 서버 임시 문구로 채운다
+        body_cards = [c for c in generated if c["layout_id"] not in ("cover", "closing")]
+        agent_cover = next((c for c in generated if c["layout_id"] == "cover"), None)
+        agent_closing = next((c for c in generated if c["layout_id"] == "closing"), None)
+        tpl_cover, tpl_closing = _template_cards(doc, groups)
+        cover = (agent_cover, "llm") if agent_cover else (tpl_cover, "template")
+        closing = (agent_closing, "llm") if agent_closing else (tpl_closing, "template")
         cards = []
-        sequence = (
-            [(cover, "template")] + [(c, "llm") for c in body_cards] + [(closing, "template")]
-        )
+        sequence = [cover] + [(c, "llm") for c in body_cards] + [closing]
         stage("images")
         used: set[str] = set()  # 같은 문서 안에서 같은 사진을 두 번 쓰지 않는다
         for order, (raw, by) in enumerate(sequence, 1):
