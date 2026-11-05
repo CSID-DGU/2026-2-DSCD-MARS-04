@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, Query, Request
@@ -72,9 +72,6 @@ class SelectionIn(BaseModel):
 
 class CheckIn(BaseModel):
     card_ids: list[str] | None = None
-    # card: 그룹 요약 ↔ 카드 문구 (사실성+완전성+피드백 통합)
-    # summary: 원문 문장 ↔ 문구 (숫자 규칙+LLM)
-    stage: Literal["card", "summary"] = "card"
 
 
 def register(app: FastAPI) -> None:
@@ -184,9 +181,9 @@ def register(app: FastAPI) -> None:
         body: Annotated[CheckIn | None, Body()] = None,
     ):
         job, card_ids = wf.start_check(store, document_id, body.card_ids if body else None)
-        stage = body.stage if body else "card"
-        work = wf.summary_check_work if stage == "summary" else wf.check_work
-        tasks.add_task(wf.run_job, store, job, work(store, pipeline, document_id, card_ids))
+        # 카드 단계 검사만 있다. 그룹 요약 ↔ 카드 문구 (사실성 + 완전성 + 피드백 통합)
+        work = wf.check_work(store, pipeline, document_id, card_ids)
+        tasks.add_task(wf.run_job, store, job, work)
         return ok("카드 검사를 시작했습니다.", {"job_id": job["job_id"], "card_ids": card_ids}, 202)
 
     @app.post(

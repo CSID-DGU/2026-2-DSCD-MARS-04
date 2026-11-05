@@ -10,9 +10,10 @@ from pydantic import ValidationError
 from backend.core.logging import current_request_id, log
 from backend.core.responses import ApiError
 from backend.core.store import Store, new_id, now
-from backend.services.pipeline import CARD_CHECKER_NAME, CHECKER_NAME, Pipeline
+from backend.services.pipeline import CARD_CHECKER_NAME, Pipeline
 from data_pipeline.schemas.card import CardGeneration
 
+SUMMARY_CHECKER_NAME = "summary-consistency(in-agent)"
 LAYOUT_FIELDS = ("title", "category", "body", "items", "left", "right", "cta")
 MAX_TEXT_CHARS = 20_000
 CLOSING_TITLE = "원문에서 확인하세요"
@@ -178,53 +179,47 @@ def create_document(store: Store, body: dict) -> tuple[dict, dict]:
 def analysis_work(store: Store, pipeline: Pipeline, document_id: str):
     def work(stage):
         doc = require_document(store, document_id)
-        stage("split")
-        sentences = pipeline.split(doc["text"])
         stage("analysis")
-        groups = pipeline.analyze(document_id, doc["text"])
+        # 문장 분리·그룹화·요약·요약 검사(재요약·원문 대체)는 분석 에이전트 안에서 끝난다.
+        # 백엔드는 그 결과를 저장만 하고, 같은 일을 다시 돌리지 않는다.
+        result = pipeline.analyze(document_id, doc["text"])
+        sentences = result["sentences"]
         stage("titles")
-        groups = pipeline.titles(document_id, groups)
+        groups = pipeline.titles(document_id, result["groups"])
         known = {s["sentence_id"] for s in sentences}
         if any(sid not in known for g in groups for sid in g["sentence_ids"]):
             raise RuntimeError("그룹의 문장 ID가 문장 목록과 맞지 않습니다.")
-        stage("summary_check")
-        groups = _check_summaries(pipeline, sentences, groups)
+        groups = _attach_summary_check(groups, result.get("summary_check") or {})
         doc.update(sentences=sentences, groups=groups, status="analyzed")
         store.save_document(doc)
 
     return work
 
 
-def _check_summaries(pipeline: Pipeline, sentences: list[dict], groups: list[dict]) -> list[dict]:
-    """요약 단계 검사: 그룹 문장(원문) ↔ 그룹 요약. consistency 검사기(숫자 규칙 + LLM).
+def _attach_summary_check(groups: list[dict], check: dict) -> list[dict]:
+    """분석 에이전트가 요약 단계에서 이미 한 검사 결과를 그룹에 붙인다. 재검사하지 않는다.
 
-    결과는 group.summary_check 로 붙인다. FAIL 처리 방식(선택 차단·경고·재생성)은 팀 결정 전이라
-    상태만 기록한다. 검사 자체가 실패해도 분석 결과는 살린다.
+    - retried: 요약이 검사에 걸려 다시 요약함(그 뒤 통과)
+    - fallback: 다시 요약해도 걸려 원문 문장으로 대체함. reason에 이유
     """
-    text_of = {s["sentence_id"]: s["text"] for s in sentences}
-    items = [
-        {
-            "item_id": g["group_id"],
-            "source": " ".join(text_of[s] for s in g["sentence_ids"] if s in text_of),
-            "text": g.get("summary") or "",
-        }
-        for g in groups
-    ]
-    items = [i for i in items if i["text"].strip()]
-    checks: dict[str, dict] = {}
-    try:
-        for r in pipeline.check(items):
-            checks[r["item_id"]] = {
-                "verdict": "ok" if r["status"] == "PASS" else "bad",
-                "by": r.get("by"),
-                "problems": r.get("problems", []),
-                "checker": CHECKER_NAME,
+    retried = set(check.get("retried_group_ids") or [])
+    fallback = set(check.get("fallback_group_ids") or [])
+    reasons = check.get("fallback_reasons") or {}
+    out = []
+    for g in groups:
+        gid = g["group_id"]
+        out.append(
+            {
+                **g,
+                "summary_check": {
+                    "retried": gid in retried,
+                    "fallback": gid in fallback,
+                    "reason": reasons.get(gid),
+                    "checker": SUMMARY_CHECKER_NAME,
+                },
             }
-    except Exception as exc:  # noqa: BLE001 — 검사 실패는 분석 실패가 아니다
-        error = {"verdict": "error", "by": None, "problems": [], "checker": CHECKER_NAME}
-        error["error"] = type(exc).__name__
-        checks = {i["item_id"]: dict(error) for i in items}
-    return [{**g, "summary_check": checks.get(g["group_id"])} for g in groups]
+        )
+    return out
 
 
 # ---------------- 선택 ----------------
@@ -384,15 +379,6 @@ def update_card(store: Store, document_id: str, card_id: str, body: dict, layout
 # ---------------- 검사 ----------------
 
 
-def card_text(card: dict) -> str:
-    parts: list[Any] = [card.get("category"), card.get("title"), card.get("body"), card.get("cta")]
-    parts += card.get("items") or []
-    for side in ("left", "right"):
-        if card.get(side):
-            parts.append(f"{card[side].get('label', '')}: {card[side].get('value', '')}")
-    return "\n".join(p for p in parts if p)
-
-
 def start_check(
     store: Store, document_id: str, card_ids: list[str] | None
 ) -> tuple[dict, list[str]]:
@@ -543,50 +529,6 @@ def _repair_fields(card: dict, suggested: dict[str, str]) -> dict | None:
                 side["value"] = text.strip()
             out[path] = side
     return out or None
-
-
-def summary_check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: list[str]):
-    """요약 단계 검사(원문 문장 ↔ 문구)를 카드 문구에 적용하는 이전 방식. consistency 검사기."""
-
-    def work(stage):
-        doc = require_document(store, document_id)
-        order = {s["sentence_id"]: i for i, s in enumerate(doc["sentences"])}
-        text_of = {s["sentence_id"]: s["text"] for s in doc["sentences"]}
-        cards = {c["card_id"]: c for c in store.list_cards(document_id)}
-        items, versions = [], {}
-        for cid in card_ids:
-            card = cards[cid]
-            sids = sorted(card["sids"], key=lambda s: order.get(s, 10**6))
-            items.append(
-                {
-                    "item_id": cid,
-                    "source": " ".join(text_of[s] for s in sids if s in text_of),
-                    "text": card_text(card),
-                }
-            )
-            versions[cid] = card["version"]
-        stage("check")
-        results = pipeline.check(items)
-        checked_at = now()
-        for result in results:
-            cid = result["item_id"]
-            card = store.get_card(cards[cid]["db_id"])
-            if card is None or card["version"] != versions[cid]:
-                continue  # 검사 중에 문구가 바뀌면 이 판정은 저장하지 않는다
-            store.save_check(
-                card["db_id"],
-                {
-                    "card_id": cid,
-                    "card_version": versions[cid],
-                    "verdict": "ok" if result["status"] == "PASS" else "bad",
-                    "by": result.get("by"),
-                    "problems": result.get("problems", []),
-                    "checker": CHECKER_NAME,
-                    "checked_at": checked_at,
-                },
-            )
-
-    return work
 
 
 # ---------------- 내보내기 ----------------

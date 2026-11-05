@@ -18,21 +18,30 @@ TEXT = " ".join(s["text"] for s in FIXTURE["sentences"])
 class FakePipeline:
     """레포 함수와 같은 모양의 입출력을 돌려준다. 문장 분리는 레포 함수를 그대로 쓴다."""
 
-    def __init__(self, fail_stage=None):
+    def __init__(self, fail_stage=None, summary_check=None):
         self.fail_stage = fail_stage
-        self.check_items = []
-
-    def split(self, text):
-        return RepoPipeline().split(text)
+        self.summary_check = summary_check or {
+            "retried_group_ids": [],
+            "fallback_group_ids": [],
+            "fallback_reasons": {},
+        }
 
     def analyze(self, document_id, text):
+        """분석 에이전트 모양. 문장 분리·요약 검사는 이 안에서 끝난 것으로 본다."""
+        from data_pipeline.extraction.llm.sentence_splitter import split_sentences
+
         if self.fail_stage == "analysis":
             raise RuntimeError("secret text should not leak")
-        return [
-            {"group_id": "G1", "sentence_ids": ["S1", "S3", "S4"], "summary": "사업 개요"},
-            {"group_id": "G2", "sentence_ids": ["S2"], "summary": "모집 일정"},
-            {"group_id": "G3", "sentence_ids": ["S5", "S6"], "summary": "가입 요건"},
-        ]
+        return {
+            "document_id": document_id,
+            "groups": [
+                {"group_id": "G1", "sentence_ids": ["S1", "S3", "S4"], "summary": "사업 개요"},
+                {"group_id": "G2", "sentence_ids": ["S2"], "summary": "모집 일정"},
+                {"group_id": "G3", "sentence_ids": ["S5", "S6"], "summary": "가입 요건"},
+            ],
+            "sentences": split_sentences(text),
+            "summary_check": self.summary_check,
+        }
 
     def titles(self, document_id, groups):
         return [{**g, "topic": f"주제 {g['group_id']}", "headline": "미리보기"} for g in groups]
@@ -109,18 +118,6 @@ class FakePipeline:
             "feedback": [],
             "unchecked": [],
         }
-
-    def check(self, items):
-        self.check_items.extend(items)
-        return [
-            {
-                "item_id": i["item_id"],
-                "status": "FAIL" if "999" in i["text"] else "PASS",
-                "by": "rule" if "999" in i["text"] else "llm",
-                "problems": [],
-            }
-            for i in items
-        ]
 
 
 @pytest.fixture
@@ -296,12 +293,11 @@ def test_agent_cover_and_closing_replace_template(make_client):
 def test_edit_check_and_invalidation(make_client):
     client, pipeline = make_client()
     doc_id = generated(client)
-    res = client.post(f"{BASE}/documents/{doc_id}/checks", json={"stage": "summary"})
+    res = client.post(f"{BASE}/documents/{doc_id}/checks")
     assert res.status_code == 202
     assert res.json()["data"]["card_ids"] == ["C2", "C3"]  # sids 없는 표지·마무리는 검사하지 않는다
-    source_c2 = next(i for i in pipeline.check_items if i["item_id"] == "C2")["source"]
-    stored = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["sentences"]
-    assert source_c2 == " ".join(stored[i]["text"] for i in (0, 2, 3))  # S1 S3 S4, 원문 순서
+    # 검사는 카드 단계 하나뿐(그룹 요약 ↔ 카드 문구). 문맥용으로 전체 카드가 넘어간다
+    assert [c["card_id"] for c in pipeline.card_inputs[1]] == ["C1", "C2", "C3", "C4"]
 
     card = next(
         c
@@ -309,9 +305,8 @@ def test_edit_check_and_invalidation(make_client):
         if c["card_id"] == "C2"
     )
     assert card["status"] == "ok"
-    assert (
-        card["check"]["card_version"] == 1
-        and card["check"]["checker"] == "summary-consistency@8c9242c"
+    assert card["check"]["card_version"] == 1 and card["check"]["checker"].startswith(
+        "card-factuality-llm"
     )
 
     url = f"{BASE}/documents/{doc_id}/cards/C2"
@@ -324,7 +319,7 @@ def test_edit_check_and_invalidation(make_client):
     rec_c2 = next(c for c in record["cards"] if c["card_id"] == "C2")
     assert rec_c2["check"] is None and record["unverified_card_count"] == 3
 
-    client.post(f"{BASE}/documents/{doc_id}/checks", json={"stage": "summary"})
+    client.post(f"{BASE}/documents/{doc_id}/checks")
     card = next(
         c
         for c in client.get(f"{BASE}/documents/{doc_id}/cards").json()["data"]["cards"]
@@ -420,45 +415,6 @@ def test_not_ready_features_return_501(make_client):
     client, _ = make_client()
     doc_id = generated(client)
     assert client.get(f"{BASE}/documents/{doc_id}/cards/C2/png").status_code == 501
-
-
-def test_repo_check_wiring_with_fake_openai():
-    """RepoPipeline.check가 레포 check_consistency를 실제로 부르는지 가짜 OpenAI로 확인한다."""
-    from ai.verification.consistency.checker import JudgmentResult
-
-    class FakeResponses:
-        def parse(self, **kwargs):
-            items = json.loads(kwargs["input"][1]["content"])["items"]
-            parsed = JudgmentResult(
-                judgments=[
-                    {"item_id": i["item_id"], "supported": True, "problems": []} for i in items
-                ]
-            )
-            return SimpleNamespace(
-                output_parsed=parsed,
-                model="fake",
-                usage=SimpleNamespace(input_tokens=1, output_tokens=1),
-            )
-
-    client = SimpleNamespace(responses=FakeResponses())
-    results = RepoPipeline(client=client).check(
-        [
-            {
-                "item_id": "C2",
-                "source": "월 10만 원을 저축한다.",
-                "text": "월 10만 원을 저축합니다.",
-            },
-            {
-                "item_id": "C3",
-                "source": "월 10만 원을 저축한다.",
-                "text": "월 20만 원을 저축합니다.",
-            },
-        ]
-    )
-    assert [(r["item_id"], r["status"], r["by"]) for r in results] == [
-        ("C2", "PASS", "llm"),
-        ("C3", "FAIL", "rule"),
-    ]
 
 
 def test_repo_check_cards_wiring_with_fake_openai():
@@ -560,28 +516,36 @@ def test_repo_check_cards_wiring_with_fake_openai():
     assert result["feedback"][0]["card_ids"] == ["C2"] and result["status"] == "ISSUES_FOUND"
 
 
-def test_summary_check_attached_to_groups(make_client):
-    """분석 끝에 요약 단계 검사(그룹 문장 ↔ 요약)를 돌려 group.summary_check 로 붙인다."""
-    client, pipeline = make_client()
+def test_summary_check_comes_from_agent_not_rechecked(make_client):
+    """요약 단계 검사는 분석 에이전트 안에서 끝난다. 백엔드는 그 결과를 그룹에 붙이기만 한다."""
+    client, _ = make_client(
+        FakePipeline(
+            summary_check={
+                "retried_group_ids": ["G2", "G3"],
+                "fallback_group_ids": ["G3"],
+                "fallback_reasons": {"G3": "숫자 '999'는 원문에 없음"},
+            }
+        )
+    )
     doc_id = analyzed(client)
     groups = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["groups"]
-    assert [g["summary_check"]["verdict"] for g in groups] == ["ok", "ok", "ok"]
-    assert groups[0]["summary_check"]["checker"] == "summary-consistency@8c9242c"
-    sent = {i["item_id"]: i for i in pipeline.check_items}
-    assert sent["G1"]["text"] == "사업 개요"  # text = 그룹 요약
-    stored = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["sentences"]
-    assert sent["G1"]["source"] == " ".join(stored[i]["text"] for i in (0, 2, 3))  # 그룹 문장 원문
+    by = {g["group_id"]: g["summary_check"] for g in groups}
+    assert by["G1"] == {
+        "retried": False,
+        "fallback": False,
+        "reason": None,
+        "checker": "summary-consistency(in-agent)",
+    }
+    assert by["G2"]["retried"] and not by["G2"]["fallback"]  # 재요약 뒤 통과
+    assert by["G3"]["fallback"] and by["G3"]["reason"] == "숫자 '999'는 원문에 없음"  # 원문 대체
 
 
-def test_summary_check_failure_does_not_fail_analysis(make_client):
-    class Broken(FakePipeline):
-        def check(self, items):
-            raise RuntimeError("checker down")
-
-    client, _ = make_client(Broken())
+def test_sentences_come_from_agent(make_client):
+    """문장 목록은 분석 에이전트가 쓴 것을 그대로 저장한다(백엔드가 다시 나누지 않는다)."""
+    client, _ = make_client()
     doc_id = analyzed(client)
-    groups = client.get(f"{BASE}/documents/{doc_id}").json()["data"]["groups"]
-    assert all(g["summary_check"]["verdict"] == "error" for g in groups)
+    doc = client.get(f"{BASE}/documents/{doc_id}").json()["data"]
+    assert [s["sentence_id"] for s in doc["sentences"]] == [f"S{i}" for i in range(1, 7)]
 
 
 def test_photo_failure_keeps_cards(make_client):
