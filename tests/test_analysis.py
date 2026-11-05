@@ -258,13 +258,20 @@ def test_empty_summary_is_retried():
 def test_analyze_output_matches_group_analysis():
     result = analyze("news_001", SOURCE_TEXT, client=fake_client())
 
-    assert set(result) == {"document_id", "groups"}
+    assert set(result) == {"document_id", "groups", "sentences", "summary_check"}
     assert result["document_id"] == "news_001"
     for group in result["groups"]:
         assert set(group) == {"group_id", "sentence_ids", "summary"}
         GroupAnalysis.model_validate(group)
     used = [i for g in result["groups"] for i in g["sentence_ids"]]
     assert used == IDS
+    # 호출자가 문장 분리를 다시 돌리지 않도록 분석에 쓴 문장을 그대로 돌려준다
+    assert [s["sentence_id"] for s in result["sentences"]] == IDS
+    assert set(result["summary_check"]) == {
+        "retried_group_ids",
+        "fallback_group_ids",
+        "fallback_reasons",
+    }
 
 
 # ---------- 분석 에이전트: 로그 ----------
