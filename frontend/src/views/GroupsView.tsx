@@ -67,7 +67,13 @@ export default function GroupsView({ wf }: { wf: Workflow }) {
                 <span className="sw" />
                 <span>
                   <b>{g.topic || g.headline}</b>
-                  <small>문장 {g.sentence_ids.length}개</small>
+                  <small>
+                    문장 {g.sentence_ids.length}개
+                    {g.summary_check?.verdict === 'bad' ? ' · 요약이 원문 검사에서 걸렸어요' : g.summary_check?.verdict === 'error' ? ' · 요약 검사 실패' : ''}
+                  </small>
+                  {g.summary_check?.verdict === 'bad' && g.summary_check.problems.length ? (
+                    <small className="error">{g.summary_check.problems.map((p) => p.reason).join(' / ')}</small>
+                  ) : null}
                 </span>
               </label>
             )

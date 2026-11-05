@@ -24,12 +24,22 @@ export interface Sentence {
   text: string
 }
 
+/** 요약 단계 검사(그룹 문장 ↔ 그룹 요약) 결과. 백엔드 분석 단계에서 붙는다. */
+export interface SummaryCheck {
+  verdict: 'ok' | 'bad' | 'error'
+  by: 'rule' | 'llm' | null
+  problems: { quote: string; reason: string }[]
+  checker: string
+  error?: string
+}
+
 export interface Group {
   group_id: string
   sentence_ids: string[]
   summary: string
   topic: string
   headline: string
+  summary_check?: SummaryCheck | null
 }
 
 export interface SourceImage {

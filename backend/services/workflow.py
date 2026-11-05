@@ -151,10 +151,44 @@ def analysis_work(store: Store, pipeline: Pipeline, document_id: str):
         known = {s["sentence_id"] for s in sentences}
         if any(sid not in known for g in groups for sid in g["sentence_ids"]):
             raise RuntimeError("그룹의 문장 ID가 문장 목록과 맞지 않습니다.")
+        stage("summary_check")
+        groups = _check_summaries(pipeline, sentences, groups)
         doc.update(sentences=sentences, groups=groups, status="analyzed")
         store.save_document(doc)
 
     return work
+
+
+def _check_summaries(pipeline: Pipeline, sentences: list[dict], groups: list[dict]) -> list[dict]:
+    """요약 단계 검사: 그룹 문장(원문) ↔ 그룹 요약. consistency 검사기(숫자 규칙 + LLM).
+
+    결과는 group.summary_check 로 붙인다. FAIL 처리 방식(선택 차단·경고·재생성)은 팀 결정 전이라
+    상태만 기록한다. 검사 자체가 실패해도 분석 결과는 살린다.
+    """
+    text_of = {s["sentence_id"]: s["text"] for s in sentences}
+    items = [
+        {
+            "item_id": g["group_id"],
+            "source": " ".join(text_of[s] for s in g["sentence_ids"] if s in text_of),
+            "text": g.get("summary") or "",
+        }
+        for g in groups
+    ]
+    items = [i for i in items if i["text"].strip()]
+    checks: dict[str, dict] = {}
+    try:
+        for r in pipeline.check(items):
+            checks[r["item_id"]] = {
+                "verdict": "ok" if r["status"] == "PASS" else "bad",
+                "by": r.get("by"),
+                "problems": r.get("problems", []),
+                "checker": CHECKER_NAME,
+            }
+    except Exception as exc:  # noqa: BLE001 — 검사 실패는 분석 실패가 아니다
+        error = {"verdict": "error", "by": None, "problems": [], "checker": CHECKER_NAME}
+        error["error"] = type(exc).__name__
+        checks = {i["item_id"]: dict(error) for i in items}
+    return [{**g, "summary_check": checks.get(g["group_id"])} for g in groups]
 
 
 # ---------------- 선택 ----------------
