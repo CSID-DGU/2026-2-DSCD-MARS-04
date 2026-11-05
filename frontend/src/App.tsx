@@ -67,7 +67,7 @@ export default function App() {
         {!wf.ready ? (
           <p className="muted">{wf.error ?? '준비 중…'}</p>
         ) : wf.busy ? (
-          <Loading kind={wf.busy.kind} stage={wf.busy.stage} />
+          <Loading key={wf.busy.kind} kind={wf.busy.kind} />
         ) : canShow ? (
           <View wf={wf} />
         ) : (

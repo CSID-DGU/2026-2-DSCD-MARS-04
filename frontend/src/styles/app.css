@@ -57,3 +57,9 @@ mark.chg{background:none;color:#b3261e;text-decoration:underline wavy #d0453a;te
 @media(prefers-reduced-motion:reduce){.load-steps>span,.load-steps>span::before{animation:none!important;transition:none!important}}
 @media(max-width:800px){.pick2{grid-template-columns:1fr}.glist2{position:static;order:-1}.a4{grid-template-columns:1fr}.a4-mini{display:none}.pair{grid-template-columns:1fr}.pair .arrow{padding:2px 0;transform:rotate(90deg);width:20px}.two-in{grid-template-columns:1fr}}
 .a4 header{position:static;justify-content:flex-start;padding:0;border:0;min-height:0;background:none;gap:12px}.a4 header small{margin-left:auto}
+/* 대기 화면: 데모의 유한 반복(4회) 애니메이션 때문에 오래 걸리면 멈춰 보였다. 무한 반복 + 시간 기준 진행 막대로 바꾼다 */
+.orbit i{animation-iteration-count:infinite}
+.load-line{display:none}
+.load-bar{height:4px;background:#e5eaf1;max-width:380px;margin:24px auto 10px;border-radius:2px;overflow:hidden}
+.load-bar i{display:block;height:100%;background:#0866d9;border-radius:2px;transition:width 200ms linear}
+.load-time{font-size:12px;color:var(--muted);margin:0}
