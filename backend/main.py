@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +19,8 @@ from backend.services import workflow as wf
 from backend.services.pipeline import Pipeline, RepoPipeline
 
 ROOT = Path(__file__).resolve().parents[1]
+# 팀 AI 모듈은 첫 호출 때 .env를 읽는다. /health 가 처음부터 키 유무를 맞게 보고하도록 미리 읽는다.
+load_dotenv(ROOT / ".env")
 LAYOUTS_PATH = ROOT / "data" / "layouts.json"
 BASE = "/api/v1"
 
