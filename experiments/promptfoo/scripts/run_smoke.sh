@@ -21,7 +21,7 @@ export PROMPTFOO_DISABLE_REMOTE_GENERATION=true
 unset OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY GOOGLE_API_KEY
 
 status=0
-for name in summary_smoke visual_smoke; do
+for name in summary_smoke visual_smoke compare_smoke; do
   echo "== $name =="
   (cd "$HERE" && npx promptfoo eval -c "$name.yaml" --no-cache --no-share -o "$OUT/$name.json")
   code=$?
