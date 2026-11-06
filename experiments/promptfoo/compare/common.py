@@ -5,7 +5,9 @@
 
 비교 사례 폴더 구조 (data/compare/ 아래, git에 올리지 않음):
     <기사 ID>/source.txt           원문 전체
-    <기사 ID>/facts.json           필수 정보 [{"id": "F1", "text": "..."}]. 생성 전에 확정
+    <기사 ID>/facts.json           필수 정보. 생성 전에 확정. 목록 [{"id": "F1", "text": "..."}]
+                                   또는 {"facts": [...], "excluded": [...]} 객체. 항목에
+                                   표현 강도 wording(미확정·요청)과 원문 표현 hedge가 붙을 수 있다
     <기사 ID>/<서비스>/*.png       카드 이미지. 파일 이름 순서가 카드 순서(C1, C2, ...)
     <기사 ID>/<서비스>/human.json  (선택) 사람 판정. provider 출력과 같은 형식
 """
@@ -25,6 +27,20 @@ NOT_ASKED_JUDGES = {"auto"}
 
 def load_questions(path: Path = QUESTIONS_PATH) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+FACT_FIELDS = ("id", "text", "wording", "hedge")
+
+
+def load_facts(path: Path) -> list[dict]:
+    """판정 모델에 넘길 필수 정보 목록.
+
+    facts.json은 목록 그대로이거나, facts·excluded·확정 기록을 담은 객체다. 판정에는
+    필수 정보의 ID·문장·표현 강도만 넘긴다. 제외 목록을 넘기면 모델이 그것까지 판정할 수 있다.
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    facts = data["facts"] if isinstance(data, dict) else data
+    return [{k: f[k] for k in FACT_FIELDS if f.get(k)} for f in facts]
 
 
 def ai_questions(spec: dict | None = None) -> list[dict]:

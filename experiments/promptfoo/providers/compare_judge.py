@@ -23,6 +23,7 @@ from experiments.promptfoo.compare.common import (
     ai_questions,
     card_ids_for,
     list_images,
+    load_facts,
     load_questions,
 )
 
@@ -122,7 +123,7 @@ def _vision(options: dict, context: dict) -> dict:
     if not images:
         return {"error": f"{case_dir / vars_['service']}에 카드 이미지가 없습니다."}
     source = (case_dir / "source.txt").read_text(encoding="utf-8")
-    facts = json.loads((case_dir / "facts.json").read_text(encoding="utf-8"))
+    facts = load_facts(case_dir / "facts.json")
     spec = load_questions()
 
     content: list[dict] = [
