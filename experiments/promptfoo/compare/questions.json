@@ -189,7 +189,7 @@
       "kind": "fact",
       "judge": "ai_candidate",
       "name": "완전성(필수 정보 전달)",
-      "question": "필수 정보가 카드 세트 어딘가에 원문과 같은 조건(금액·대상·기간·조건·예외)으로 전달되는가? CONVEYED(조건까지 같게 전달), MISSING(어디에도 없음), DISTORTED(전달됐지만 조건이 바뀜), UNCERTAIN 중 하나. CONVEYED와 DISTORTED에는 해당 카드 번호와 카드 문구를 spans에 적는다.",
+      "question": "필수 정보가 카드 세트 어딘가에 원문과 같은 조건(금액·대상·기간·조건·예외)으로 전달되는가? CONVEYED(조건까지 같게 전달), MISSING(어디에도 없음), DISTORTED(전달됐지만 조건이 바뀜), UNCERTAIN 중 하나. 필수 정보에 표현 강도가 적혀 있으면 함께 본다: '미확정'인 항목을 카드가 확정된 것처럼 쓰면 DISTORTED, '요청'인 항목을 의무처럼 쓰면 DISTORTED. 원문의 상대 날짜를 기사 날짜 기준 절대 날짜로 바꿔 쓴 것은 CONVEYED. CONVEYED와 DISTORTED에는 해당 카드 번호와 카드 문구를 spans에 적는다.",
       "not_applicable": ""
     }
   ],

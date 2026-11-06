@@ -9,7 +9,12 @@ from experiments.promptfoo.assertions.compare_judgment import (
     human_agreement,
     valid_compare_judgment,
 )
-from experiments.promptfoo.compare.common import ai_questions, expected_keys, load_questions
+from experiments.promptfoo.compare.common import (
+    ai_questions,
+    expected_keys,
+    load_facts,
+    load_questions,
+)
 from experiments.promptfoo.providers.compare_judge import build_instructions, call_api
 from experiments.promptfoo.scripts.export_compare import summarize, to_records
 
@@ -143,3 +148,48 @@ def test_export_keeps_factuality_and_completeness_separate():
     assert summary["사실성_틀린문구수"] == 1
     assert (summary["완전성_전달"], summary["완전성_왜곡"], summary["완전성_누락"]) == (1, 1, 0)
     assert summary["완전성_전달률"] == 0.5
+
+
+def test_load_facts_passes_only_fact_fields(tmp_path: Path):
+    path = tmp_path / "facts.json"
+    path.write_text(
+        json.dumps(
+            {
+                "case": "a01",
+                "facts": [
+                    {
+                        "id": "F1",
+                        "type": "시점",
+                        "text": "10월 29일부터 시행한다",
+                        "lines": [1],
+                        "evidence": "29일부터",
+                    },
+                    {
+                        "id": "F2",
+                        "text": "확대할 방침이다",
+                        "wording": "미확정",
+                        "hedge": "방침이다",
+                    },
+                ],
+                "excluded": [{"lines": [3], "what": "예산 105억 원", "why": "세부 예산"}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert load_facts(path) == [
+        {"id": "F1", "text": "10월 29일부터 시행한다"},
+        {"id": "F2", "text": "확대할 방침이다", "wording": "미확정", "hedge": "방침이다"},
+    ]
+
+
+def test_load_facts_accepts_plain_list(tmp_path: Path):
+    path = tmp_path / "facts.json"
+    path.write_text(json.dumps([{"id": "F1", "text": "가"}]), encoding="utf-8")
+    assert load_facts(path) == [{"id": "F1", "text": "가"}]
+
+
+def test_completeness_question_states_wording_rules():
+    c02 = next(q for q in load_questions()["questions"] if q["id"] == "C-02")
+    assert "미확정" in c02["question"] and "요청" in c02["question"]
+    assert "절대 날짜" in c02["question"]
