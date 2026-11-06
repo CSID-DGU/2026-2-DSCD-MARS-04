@@ -7,6 +7,7 @@
 data/samples/original_text.xlsx
 data/samples/aihub/
 data/samples/mface/
+data/compare/
 data/outputs/
 experiments/**/results/
 experiments/my_experiments/
