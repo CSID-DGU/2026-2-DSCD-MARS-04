@@ -34,3 +34,44 @@ PROMPTFOO_PYTHON=<레포 requirements가 설치된 python> npm run smoke
 | `scripts/run_smoke.sh` | 위 과정을 한 번에 실행 |
 
 결과 파일은 `results/`에 저장되며 git에 올리지 않는다(`.gitignore`의 `experiments/**/results/`).
+
+## 완성 카드 비교 (CardSync vs 망고보드)
+
+같은 기사로 두 서비스가 만든 최종 카드 PNG를 같은 판정 질문으로 판정한다. 판정 질문은 `compare/questions.json` 하나에서 읽고, 팀 평가표 '판정질문' 시트와 같은 내용이다.
+
+| 파일 | 역할 |
+|---|---|
+| `compare/questions.json` | 판정 질문 18개, 허용 판정값, 판정자(AI 판정 / AI 후보 / 자동) |
+| `compare/common.py` | 질문 로드, 판정이 있어야 하는 (질문, 카드, 필수 정보) 조합 계산 |
+| `providers/compare_judge.py` | `replay`(fixture, API 없음) / `vision`(카드 PNG + 원문 + 필수 정보 → 비전 LLM, 출력은 JSON 스키마로 고정) |
+| `assertions/compare_judgment.py` | 판정 형식 검사(누락·허용값·근거·원문 인용 실재), 사람 판정 일치도 |
+| `scripts/export_compare.py` | 결과를 평가표 '판정기록' 형식 CSV로 내보내고 사실성·완전성을 따로 요약 |
+| `compare_smoke.yaml` | fixture smoke (`npm run smoke`에 포함) |
+| `compare_vision.yaml` | 실제 판정 (OPENAI_API_KEY 필요) |
+
+판정 원칙
+
+- 질문마다 충족/미충족/해당 없음/판단 보류. 부분 충족은 미충족 (PresentBench, arXiv:2603.07244)
+- 카드 단위와 세트 단위를 나눠 판정 (PPTEval, EMNLP 2025), 최종 PNG로 비교 (SlidesGen-Bench, arXiv:2601.09487)
+- 사실성(C-01)과 완전성(C-02)은 합산하지 않고 따로 보고한다 (FineSurE, ACL 2024). 완전성은 필수 정보마다 전달/누락/왜곡이며, 조건이 바뀐 정보(왜곡)는 전달로 세지 않는다. 같은 오류가 C-01 미충족과 C-02 왜곡에 함께 잡힐 수 있다
+- C-01·C-02의 AI 판정은 후보다. 최종 판정은 사람이 한다. CardSync 검사기는 판정에 쓰지 않는다(자기 채점 방지)
+- D-06(최소 글자 크기), D-07(저장 문구 일치)은 AI에게 묻지 않는다. CardSync는 렌더 화면 자동 측정, 망고보드 D-07은 해당 없음
+
+사례 폴더 (`data/compare/`, git에 올리지 않음)
+
+```
+data/compare/a01/source.txt          원문 전체
+data/compare/a01/facts.json          필수 정보 [{"id": "F1", "text": "..."}] — 생성 전에 확정
+data/compare/a01/CardSync/*.png      카드 이미지, 파일 이름 순서 = 카드 순서
+data/compare/a01/망고보드/*.png
+```
+
+실행
+
+```sh
+cd experiments/promptfoo
+PROMPTFOO_PYTHON=<python> PYTHONPATH=../.. npx promptfoo eval -c compare_vision.yaml --no-cache --no-share -o results/compare_vision.json
+cd ../.. && python -m experiments.promptfoo.scripts.export_compare experiments/promptfoo/results/compare_vision.json 판정기록.csv
+```
+
+카드 세트 1개(카드 6장, gpt-4.1-mini) 판정에 약 35초, 입력 약 16,000 / 출력 약 4,000 토큰, 약 $0.013이 들었다(11/6 연결 확인 1회). 이 비용은 평가용이며 서비스 비용과 따로 적는다.
