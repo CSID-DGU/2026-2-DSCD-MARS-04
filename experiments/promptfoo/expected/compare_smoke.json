@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "smoke_compare_valid",
+    "provider": "compare_judge_fixture",
+    "metric": "valid_compare_judgment",
+    "pass": true
+  },
+  {
+    "case_id": "smoke_compare_valid",
+    "provider": "compare_judge_fixture",
+    "metric": "human_agreement",
+    "pass": true
+  },
+  {
+    "case_id": "smoke_compare_broken",
+    "provider": "compare_judge_fixture",
+    "metric": "valid_compare_judgment",
+    "pass": false
+  },
+  {
+    "case_id": "smoke_compare_broken",
+    "provider": "compare_judge_fixture",
+    "metric": "human_agreement",
+    "pass": false
+  }
+]

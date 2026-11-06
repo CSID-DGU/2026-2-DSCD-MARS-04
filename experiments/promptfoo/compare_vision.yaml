@@ -1,0 +1,45 @@
+# 완성 카드 비교 실제 판정 (OPENAI_API_KEY 필요, 유료 호출)
+# 사례 폴더 구조는 compare/common.py 머리말 참고. data/compare/ 는 git에 올리지 않는다.
+# 실행: npx promptfoo eval -c compare_vision.yaml --no-cache --no-share -o results/compare_vision.json
+#       python -m experiments.promptfoo.scripts.export_compare experiments/promptfoo/results/compare_vision.json 판정기록.csv
+#
+# 테스트는 기사 1건 × 서비스 2개다. 기사를 추가할 때 같은 형식으로 두 줄씩 늘린다.
+# card_ids는 카드 이미지 수, fact_ids는 facts.json의 ID와 맞춘다 (assertion이 누락을 검사한다).
+description: 완성 카드 비교 판정 — vision (CardSync vs 망고보드)
+
+prompts:
+  - "{{case_id}} {{service}}"
+
+providers:
+  - id: file://providers/compare_judge.py
+    label: compare_judge_vision
+    config:
+      mode: vision
+      model: gpt-4.1-mini
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://assertions/compare_judgment.py:valid_compare_judgment
+      metric: valid_compare_judgment
+    - type: python
+      value: file://assertions/compare_judgment.py:human_agreement
+      metric: human_agreement
+
+tests:
+  - description: 기사 01 — CardSync
+    vars:
+      case_id: a01_cardsync
+      article_no: 1
+      service: CardSync
+      case_dir: data/compare/a01
+      card_ids: '["C1", "C2", "C3", "C4", "C5"]'
+      fact_ids: '["F1", "F2", "F3", "F4", "F5", "F6"]'
+  - description: 기사 01 — 망고보드
+    vars:
+      case_id: a01_mangoboard
+      article_no: 1
+      service: 망고보드
+      case_dir: data/compare/a01
+      card_ids: '["C1", "C2", "C3", "C4", "C5", "C6"]'
+      fact_ids: '["F1", "F2", "F3", "F4", "F5", "F6"]'

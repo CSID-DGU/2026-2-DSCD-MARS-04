@@ -1,0 +1,459 @@
+{
+  "_note": "연결 확인용으로 손으로 만든 판정. 실제 카드나 모델 판정이 아니며 품질 점수가 아니다.",
+  "smoke_compare_valid": {
+    "CardSync": {
+      "judgments": [
+        {
+          "question_id": "V-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-01",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-02",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-02",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-03",
+          "card_id": "C1",
+          "verdict": "NOT_APPLICABLE",
+          "evidence": "",
+          "reason": "이미지가 없는 표지 카드",
+          "spans": []
+        },
+        {
+          "question_id": "V-03",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-04",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-04",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-01",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-02",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-03",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-04",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-05",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-01",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-02",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-02",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-03",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-03",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-04",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-04",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-05",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-05",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "C-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "C-01",
+          "card_id": "C2",
+          "verdict": "NOT_MET",
+          "evidence": "'최대 970만원'",
+          "reason": "",
+          "spans": [
+            {
+              "card_id": "C2",
+              "card_text": "초소형 보조금 최대 970만원",
+              "source_quote": "초소형 보조금은 최대 870만원이다."
+            }
+          ]
+        },
+        {
+          "question_id": "C-02",
+          "fact_id": "F1",
+          "verdict": "CONVEYED",
+          "evidence": "",
+          "reason": "",
+          "spans": [
+            {
+              "card_id": "C1",
+              "card_text": "전기차 196대 지원",
+              "source_quote": "아산시는 전기차 196대를 지원하며"
+            }
+          ]
+        },
+        {
+          "question_id": "C-02",
+          "fact_id": "F2",
+          "verdict": "DISTORTED",
+          "evidence": "870만원이 970만원으로 바뀜",
+          "reason": "",
+          "spans": [
+            {
+              "card_id": "C2",
+              "card_text": "초소형 보조금 최대 970만원",
+              "source_quote": "초소형 보조금은 최대 870만원이다."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "smoke_compare_broken": {
+    "CardSync": {
+      "judgments": [
+        {
+          "question_id": "V-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-02",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-02",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-03",
+          "card_id": "C1",
+          "verdict": "NOT_APPLICABLE",
+          "evidence": "",
+          "reason": "이미지가 없는 표지 카드",
+          "spans": []
+        },
+        {
+          "question_id": "V-03",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-04",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "V-04",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-01",
+          "verdict": "GOOD",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-02",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-03",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-04",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "S-05",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-01",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-02",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-02",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-03",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-03",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-04",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-04",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-05",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "D-05",
+          "card_id": "C2",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "C-01",
+          "card_id": "C1",
+          "verdict": "MET",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "C-01",
+          "card_id": "C2",
+          "verdict": "NOT_MET",
+          "evidence": "'최대 970만원'",
+          "reason": "",
+          "spans": [
+            {
+              "card_id": "C2",
+              "card_text": "초소형 보조금 최대 970만원",
+              "source_quote": "초소형 보조금은 최대 870만원이다."
+            }
+          ]
+        },
+        {
+          "question_id": "C-02",
+          "fact_id": "F1",
+          "verdict": "CONVEYED",
+          "evidence": "",
+          "reason": "",
+          "spans": []
+        },
+        {
+          "question_id": "C-02",
+          "fact_id": "F2",
+          "verdict": "DISTORTED",
+          "evidence": "870만원이 970만원으로 바뀜",
+          "reason": "",
+          "spans": [
+            {
+              "card_id": "C2",
+              "card_text": "초소형 보조금 최대 970만원",
+              "source_quote": "초소형 보조금은 최대 970만원이다."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

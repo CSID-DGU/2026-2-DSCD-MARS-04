@@ -1,0 +1,26 @@
+[
+  {
+    "question_id": "C-01",
+    "card_id": "C2",
+    "verdict": "NOT_MET"
+  },
+  {
+    "question_id": "C-02",
+    "fact_id": "F1",
+    "verdict": "CONVEYED"
+  },
+  {
+    "question_id": "C-02",
+    "fact_id": "F2",
+    "verdict": "DISTORTED"
+  },
+  {
+    "question_id": "V-03",
+    "card_id": "C1",
+    "verdict": "NOT_APPLICABLE"
+  },
+  {
+    "question_id": "S-02",
+    "verdict": "NOT_MET"
+  }
+]
