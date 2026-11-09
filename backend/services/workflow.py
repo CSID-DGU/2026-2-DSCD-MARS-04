@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from backend.core import llm_usage
 from backend.core.logging import current_request_id, log
 from backend.core.responses import ApiError
 from backend.core.store import Store, new_id, now
@@ -95,14 +96,19 @@ def run_job(store: Store, job: dict, work) -> None:
     """작업을 실행하고 단계별 처리 시간을 job["stages"]와 JSON 로그에 남긴다."""
     started = time.perf_counter()
     rid = job.get("request_id")
-    current = {"name": None, "t": started}
+    current = {"name": None, "t": started, "usage": None}
+    total = {"llm_calls": 0, "input_tokens": 0, "output_tokens": 0}
 
     def close_stage(status: str) -> None:
         if current["name"] is None:
             return
         ms = round((time.perf_counter() - current["t"]) * 1000, 1)
+        # LLM을 부른 단계에만 토큰을 붙인다. 실패한 시도의 토큰도 비용이라 같이 센다.
+        usage = current["usage"] if current["usage"] and current["usage"]["llm_calls"] else {}
+        for k, v in usage.items():
+            total[k] += v
         job.setdefault("stages", []).append(
-            {"name": current["name"], "duration_ms": ms, "status": status}
+            {"name": current["name"], "duration_ms": ms, "status": status, **usage}
         )
         log(
             "job_stage",
@@ -112,11 +118,12 @@ def run_job(store: Store, job: dict, work) -> None:
             stage=current["name"],
             status=status,
             duration_ms=ms,
+            **usage,
         )
 
     def stage(name: str) -> None:
         close_stage("ok")
-        current.update(name=name, t=time.perf_counter())
+        current.update(name=name, t=time.perf_counter(), usage=llm_usage.start())
         job.update(status="running", stage=name)
         store.save_job(job)
 
@@ -147,6 +154,7 @@ def run_job(store: Store, job: dict, work) -> None:
             status=job["status"],
             error_type=(job["error"] or {}).get("type"),
             elapsed_seconds=job["elapsed_seconds"],
+            **(total if total["llm_calls"] else {}),
         )
 
 
