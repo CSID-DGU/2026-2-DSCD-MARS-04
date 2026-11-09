@@ -99,6 +99,39 @@ def test_failed_stage_logged_without_message(client_and_logs, monkeypatch):
     assert finished["status"] == "failed" and finished["error_type"] == "RuntimeError"
 
 
+def test_llm_tokens_recorded_per_stage(client_and_logs):
+    from types import SimpleNamespace
+
+    from openai.resources.responses import Responses
+
+    from backend.core import llm_usage
+
+    assert hasattr(Responses.parse, "__wrapped__")  # SDK 감싸기가 설치됨
+    fake_parse = llm_usage._wrap(
+        lambda self: SimpleNamespace(usage=SimpleNamespace(input_tokens=100, output_tokens=20))
+    )
+
+    class TokenPipeline(FakePipeline):
+        def analyze(self, document_id, text):
+            fake_parse(None)
+            fake_parse(None)
+            return super().analyze(document_id, text)
+
+    client, records = client_and_logs
+    client.app.state.pipeline = TokenPipeline()
+    res = client.post(f"{BASE}/documents", json={"text": TEXT})
+    job = client.get(f"{BASE}/jobs/{res.json()['data']['job_id']}").json()["data"]
+    analysis, titles = job["stages"][1], job["stages"][2]
+    assert (analysis["llm_calls"], analysis["input_tokens"], analysis["output_tokens"]) == (
+        2,
+        200,
+        40,
+    )
+    assert "llm_calls" not in titles  # LLM을 안 부른 단계에는 붙지 않는다
+    (finished,) = [r for r in records if r["event"] == "job_finished"]
+    assert (finished["input_tokens"], finished["output_tokens"]) == (200, 40)
+
+
 def test_logs_never_contain_source_text_or_key(client_and_logs):
     client, records = client_and_logs
     client.post(f"{BASE}/documents?token=abc", json={"text": TEXT})
