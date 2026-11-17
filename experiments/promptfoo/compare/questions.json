@@ -9,6 +9,7 @@
     ],
     "fact": [
       "CONVEYED",
+      "PARTIALLY_CONVEYED",
       "MISSING",
       "DISTORTED",
       "UNCERTAIN"
@@ -20,14 +21,15 @@
     "NOT_APPLICABLE": "해당 없음",
     "UNCERTAIN": "판단 보류",
     "CONVEYED": "전달",
+    "PARTIALLY_CONVEYED": "부분 전달",
     "MISSING": "누락",
     "DISTORTED": "왜곡"
   },
   "rules": [
     "질문마다 MET, NOT_MET, NOT_APPLICABLE, UNCERTAIN 중 하나로 답한다. 질문을 일부만 충족하면 NOT_MET이다.",
-    "NOT_MET, UNCERTAIN에는 카드에 실제로 보이는 문구나 위치를 evidence에 적는다. NOT_APPLICABLE에는 reason을 적는다.",
+    "NOT_MET, UNCERTAIN, PARTIALLY_CONVEYED, MISSING, DISTORTED에는 evidence를 반드시 적는다. 카드에 보이는 문구나 위치를 쓰고, MISSING이면 어느 카드를 확인했는데 없었는지 쓴다. NOT_APPLICABLE에는 reason을 적는다.",
     "글자가 이미지 안에 있어 읽을 수 없으면 추측하지 말고 UNCERTAIN으로 답한다.",
-    "C-01, C-02는 원문 대조 문항이다. 원문을 인용할 때 source_quote에는 원문 문장을 한 글자도 바꾸지 않고 그대로 옮긴다."
+    "C-01, C-02는 원문 대조 문항이다. spans의 source_line에는 근거가 되는 원문 줄 번호를 적는다. 근거 줄이 여럿이면 span을 여러 개 만든다. 카드 문구는 card_text에 그대로 옮긴다."
   ],
   "questions": [
     {
@@ -189,7 +191,7 @@
       "kind": "fact",
       "judge": "ai_candidate",
       "name": "완전성(필수 정보 전달)",
-      "question": "필수 정보가 카드 세트 어딘가에 원문과 같은 조건(금액·대상·기간·조건·예외)으로 전달되는가? CONVEYED(조건까지 같게 전달), MISSING(어디에도 없음), DISTORTED(전달됐지만 조건이 바뀜), UNCERTAIN 중 하나. 필수 정보에 표현 강도가 적혀 있으면 함께 본다: '미확정'인 항목을 카드가 확정된 것처럼 쓰면 DISTORTED, '요청'인 항목을 의무처럼 쓰면 DISTORTED. 원문의 상대 날짜를 기사 날짜 기준 절대 날짜로 바꿔 쓴 것은 CONVEYED. CONVEYED와 DISTORTED에는 해당 카드 번호와 카드 문구를 spans에 적는다.",
+      "question": "필수 정보가 카드 세트 어딘가에 전달되는가? 판정 기준은 CardSync 완전성 검사(ai/verification/completeness/llm/c_prompt.md)의 정의를 따른다. CONVEYED(핵심 의미와 적용 범위를 정하는 대상·금액·기간·조건·예외가 유지됨. 표현이 달라도, 부가적인 나열·세부 설명이 생략돼도 핵심 의미가 같으면 CONVEYED), PARTIALLY_CONVEYED(관련 내용은 있지만 핵심 요소 일부가 빠짐. 바뀐 값은 없고 적용 범위도 바뀌지 않음), MISSING(어디에도 없음. 관련 단어가 나온다는 이유만으로 전달로 보지 않는다), DISTORTED(금액·대상·기간·조건·한정 표현이 바뀌었거나, 조건을 빠뜨려 적용 범위가 실제보다 넓거나 좁아짐), UNCERTAIN 중 하나. 필수 정보에 중요도 '부가'가 적혀 있으면 세부 생략에 더 너그럽게 본다. 표현 강도가 적혀 있으면 함께 본다: '미확정'인 항목을 카드가 확정된 것처럼 쓰면 DISTORTED, '요청'인 항목을 의무처럼 쓰면 DISTORTED. 원문의 상대 날짜를 기사 날짜 기준 절대 날짜로 바꿔 쓴 것은 CONVEYED. CONVEYED·PARTIALLY_CONVEYED·DISTORTED에는 해당 카드 번호와 카드 문구를 spans에 적는다.",
       "not_applicable": ""
     }
   ],

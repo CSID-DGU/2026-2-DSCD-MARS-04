@@ -97,11 +97,12 @@ def summarize(records: list[list]) -> dict[str, dict]:
         judged = [r for r in fact if r[5] in ("충족", "미충족")]
         bad = [r for r in judged if r[5] == "미충족"]
         comp = Counter(r[5] for r in rows if r[3] == "C-02")
-        n = comp["전달"] + comp["누락"] + comp["왜곡"]
+        n = comp["전달"] + comp["부분 전달"] + comp["누락"] + comp["왜곡"]
         out[svc] = {
             "사실성_틀린문구수": sum(int(r[6] or 0) for r in fact),
             "사실성_오류카드비율": round(len(bad) / len(judged), 3) if judged else None,
             "완전성_전달": comp["전달"],
+            "완전성_부분전달": comp["부분 전달"],
             "완전성_누락": comp["누락"],
             "완전성_왜곡": comp["왜곡"],
             "완전성_판단보류": comp["판단 보류"],
