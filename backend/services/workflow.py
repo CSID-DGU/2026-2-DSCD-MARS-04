@@ -290,12 +290,32 @@ def _template_cards(doc: dict, groups: list[dict]) -> tuple[dict, dict]:
     return cover, closing
 
 
+GENERATION_RETRIES = 2
+
+
+def _generate(pipeline: Pipeline, document_id: str, groups: list[dict]) -> list[dict]:
+    """모델 출력이 스키마·레이아웃 검증에 걸리면 같은 입력으로 다시 생성한다."""
+    for attempt in range(1, GENERATION_RETRIES + 2):
+        try:
+            return pipeline.generate(document_id, groups)
+        except (ValidationError, ValueError) as exc:
+            if attempt > GENERATION_RETRIES:
+                raise
+            log(
+                "generation_retry",
+                request_id=current_request_id(),
+                document_id=document_id,
+                attempt=attempt,
+                error_type=type(exc).__name__,
+            )
+
+
 def generation_work(store: Store, pipeline: Pipeline, document_id: str):
     def work(stage):
         doc = require_document(store, document_id)
         groups = [g for g in doc["groups"] if g["group_id"] in doc["required_group_ids"]]
         stage("cards")
-        generated = pipeline.generate(document_id, groups)
+        generated = _generate(pipeline, document_id, groups)
         # 에이전트가 표지·마무리를 함께 내면 그대로 쓰고, 본문만 오면 서버 임시 문구로 채운다
         body_cards = [c for c in generated if c["layout_id"] not in ("cover", "closing")]
         agent_cover = next((c for c in generated if c["layout_id"] == "cover"), None)

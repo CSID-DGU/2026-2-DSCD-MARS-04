@@ -72,6 +72,7 @@ class RepoPipeline:
             layouts.layout_selections,
             client=self.client,
             include_boundary_cards=True,
+            strict=False,  # 글자 수가 끝내 안 줄면 넘친 채로 배치한다. 편집 화면이 넘침을 표시한다
         )
         return [c.model_dump() for c in result.cards]
 

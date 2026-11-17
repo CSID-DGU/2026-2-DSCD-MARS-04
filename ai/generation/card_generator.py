@@ -39,6 +39,11 @@ def save_log(record: dict, log_path: Path | None) -> None:
         stream.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def _only_over_limit(error: ValueError) -> bool:
+    # card_checks가 모든 오류를 ValueError로 내므로 메시지로 글자 수 초과만 가려낸다
+    return "글자 수 초과" in str(error)
+
+
 def build_group_request(
     request: CardGenerationInput,
     group_id: str,
@@ -161,8 +166,12 @@ def generate_cards(
     client: OpenAI | None = None,
     log_path: Path | None = None,
     include_boundary_cards: bool = False,
+    strict: bool = True,
 ) -> CardGenerationOutput:
-    """Generate body cards and optionally return the generated cover and closing pair."""
+    """Generate body cards and optionally return the generated cover and closing pair.
+
+    strict=False면 최대 수정 후에도 글자 수 초과만 남은 그룹은 넘친 채로 확정한다.
+    """
 
     started = time.perf_counter()
 
@@ -178,6 +187,7 @@ def generate_cards(
         "attempt_count": 0,
         "correction_count": 0,
         "corrected_group_ids": [],
+        "over_limit_group_ids": [],
         "validation_failure_count": 0,
         "usage": {
             "input_tokens": 0,
@@ -400,10 +410,18 @@ def generate_cards(
                         break
 
                 else:
-                    raise ValueError(
-                        f"{group_id}: 최대 {MAX_RETRIES}회 수정 후에도 "
-                        f"검증에 실패했습니다. 마지막 오류: {last_error}"
-                    ) from last_error
+                    if strict or not _only_over_limit(last_error):
+                        raise ValueError(
+                            f"{group_id}: 최대 {MAX_RETRIES}회 수정 후에도 "
+                            f"검증에 실패했습니다. 마지막 오류: {last_error}"
+                        ) from last_error
+
+                    record["over_limit_group_ids"].append(group_id)
+
+                    print(
+                        f"[{group_id}] 글자 수 초과를 남긴 채 확정: {last_error}",
+                        file=sys.stderr,
+                    )
 
             # 4. 검증을 통과한 그룹은 그대로 확정
             validated_cards.extend(group_result.cards)
@@ -417,13 +435,18 @@ def generate_cards(
         # 6. 전체 결과 최종 검증
         record["stage"] = "final_validation"
 
-        validate_output(
-            request,
-            CardGenerationOutput(
-                document_id=document_id,
-                cards=[card for card in final_result.cards if card.group_id is not None],
-            ),
-        )
+        try:
+            validate_output(
+                request,
+                CardGenerationOutput(
+                    document_id=document_id,
+                    cards=[card for card in final_result.cards if card.group_id is not None],
+                ),
+            )
+        except ValueError as error:
+            # 그룹 순서·개수 검사가 글자 수 검사보다 먼저 돌므로, 글자 수 오류면 나머지는 통과한 것
+            if strict or not _only_over_limit(error):
+                raise
         validate_boundary_output(request, extract_boundary_result(final_result))
 
         record["status"] = "success"
