@@ -4,8 +4,9 @@
    (판정 내용의 옳고 그름은 보지 않음)
    - 모든 (질문, 카드), (질문, 세트), (C-02, 필수 정보)에 판정이 정확히 하나씩 있는가
    - verdict가 질문 종류별 허용값인가
-   - NOT_MET·UNCERTAIN·MISSING·DISTORTED에 evidence가 있고, NOT_APPLICABLE에 reason이 있는가
-   - C-01 NOT_MET, C-02 CONVEYED·DISTORTED의 spans에 카드 번호와 문구가 있는가
+   - NOT_MET·UNCERTAIN·PARTIALLY_CONVEYED·MISSING·DISTORTED에 evidence가 있고,
+     NOT_APPLICABLE에 reason이 있는가
+   - C-01 NOT_MET, C-02 CONVEYED·PARTIALLY_CONVEYED·DISTORTED의 spans에 카드 번호와 문구가 있는가
    - spans의 source_quote가 원문에 실제로 있는가 (공백 차이만 무시)
 2) human_agreement: 사람 판정(vars.human)이 있는 사례에서 AI 판정과 같은 비율.
    기준값은 vars.min_agreement
@@ -25,7 +26,7 @@ from experiments.promptfoo.compare.common import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-NEEDS_EVIDENCE = {"NOT_MET", "UNCERTAIN", "MISSING", "DISTORTED"}
+NEEDS_EVIDENCE = {"NOT_MET", "UNCERTAIN", "PARTIALLY_CONVEYED", "MISSING", "DISTORTED"}
 
 
 def _as_list(value) -> list:
@@ -82,7 +83,7 @@ def check_judgments(
             problems.append(f"{qid} {key[1] or '세트'}: NOT_APPLICABLE인데 reason 없음")
 
         needs_span = (qid == "C-01" and verdict == "NOT_MET") or (
-            qid == "C-02" and verdict in {"CONVEYED", "DISTORTED"}
+            qid == "C-02" and verdict in {"CONVEYED", "PARTIALLY_CONVEYED", "DISTORTED"}
         )
         spans = item.get("spans") or []
         if not isinstance(spans, list) or not all(isinstance(s, dict) for s in spans):

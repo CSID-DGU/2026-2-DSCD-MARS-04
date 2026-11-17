@@ -78,6 +78,16 @@ def test_distorted_fact_needs_evidence():
     assert any("DISTORTED인데 evidence 없음" in p for p in problems)
 
 
+def test_partially_conveyed_fact_needs_evidence_and_spans():
+    judgments = _fixture("smoke_compare_valid")
+    for j in judgments:
+        if j.get("fact_id") == "F2":
+            j.update(verdict="PARTIALLY_CONVEYED", evidence="", spans=[])
+    problems = " ".join(check_judgments(judgments, CARDS, FACTS, SOURCE))
+    assert "PARTIALLY_CONVEYED인데 evidence 없음" in problems
+    assert "PARTIALLY_CONVEYED인데 spans 없음" in problems
+
+
 def test_quote_check_ignores_whitespace_only():
     judgments = _fixture("smoke_compare_valid")
     for j in judgments:
@@ -118,6 +128,51 @@ def test_replay_provider_returns_fixture():
     result = call_api("", {"config": {"mode": "replay"}}, context)
     assert json.loads(result["output"])["judgments"][0]["question_id"] == "V-01"
     assert result["cost"] == 0
+
+
+def test_passes_split_questions_and_lock_ids():
+    from experiments.promptfoo.providers.compare_judge import PASSES, output_schema, pass_questions
+
+    spec = load_questions()
+    split = [[q["id"] for q in pass_questions(spec, ids)] for _, ids in PASSES]
+    assert sorted(sum(split, [])) == sorted(q["id"] for q in ai_questions())
+    assert split[1] == ["C-01"] and split[2] == ["C-02"]
+    schema = output_schema(spec, pass_questions(spec, {"C-02"}), CARDS, FACTS)
+    assert schema["required"] == ["C-02|F1", "C-02|F2"]
+    assert (
+        schema["properties"]["C-02|F1"]["properties"]["verdict"]["enum"] == spec["verdicts"]["fact"]
+    )
+    schema = output_schema(spec, pass_questions(spec, {"C-01"}), CARDS, FACTS)
+    assert schema["required"] == ["C-01|C1", "C-01|C2"]
+    assert "CONVEYED" not in schema["properties"]["C-01|C1"]["properties"]["verdict"]["enum"]
+
+
+def test_keyed_answer_becomes_judgment_list():
+    from experiments.promptfoo.providers.compare_judge import pass_questions, slots, to_judgments
+
+    table = slots(pass_questions(load_questions(), {"C-02"}), CARDS, FACTS)
+    out = to_judgments(
+        {"C-02|F2": {"verdict": "MISSING", "evidence": "C1~C2에 없음", "reason": "", "spans": []}},
+        table,
+    )
+    assert out == [
+        {
+            "question_id": "C-02",
+            "card_id": None,
+            "fact_id": "F2",
+            "verdict": "MISSING",
+            "evidence": "C1~C2에 없음",
+            "reason": "",
+            "spans": [],
+        }
+    ]
+
+
+def test_quote_check_ignores_punctuation_only():
+    from experiments.promptfoo.compare.common import normalize
+
+    assert normalize("21일 '한복의 날'에는") == normalize("21일 한복의 날에는")
+    assert normalize("월 20만 원") != normalize("월 30만 원")
 
 
 def test_instructions_list_every_ai_question():
@@ -193,3 +248,21 @@ def test_completeness_question_states_wording_rules():
     c02 = next(q for q in load_questions()["questions"] if q["id"] == "C-02")
     assert "미확정" in c02["question"] and "요청" in c02["question"]
     assert "절대 날짜" in c02["question"]
+
+
+def test_source_line_becomes_exact_quote():
+    from experiments.promptfoo.providers.compare_judge import pass_questions, slots, to_judgments
+
+    table = slots(pass_questions(load_questions(), {"C-02"}), CARDS, FACTS)
+    span = {"card_id": "C1", "card_text": "최대 870만원", "source_line": 1}
+    bad = {"card_id": "C1", "card_text": "x", "source_line": 9}
+    out = to_judgments(
+        {"C-02|F1": {"verdict": "CONVEYED", "evidence": "C1", "reason": "", "spans": [span, bad]}},
+        table,
+        [SOURCE],
+    )
+    assert out[0]["spans"][0]["source_quote"] == SOURCE
+    assert out[0]["spans"][1]["source_quote"] == "(없는 원문 줄 9)"
+    assert check_judgments(out, CARDS, ["F1"], SOURCE) and "원문에 없는 인용" in " ".join(
+        check_judgments(out, CARDS, ["F1"], SOURCE)
+    )

@@ -49,7 +49,19 @@ def _replay(context: dict) -> dict:
     }
 
 
-def build_instructions(spec: dict) -> str:
+# 한 요청에 카드 8~12장 × 질문 16개 + 필수 정보 판정을 몰아넣으면 gpt-4.1-mini가 판정을 빠뜨리고
+# 판정값·ID를 섞는다(11-08 실측: 38건 중 7건만 형식 통과). 그래서 질문을 세 번에 나눠 묻는다.
+PASSES = (("visual", None), ("factuality", {"C-01"}), ("completeness", {"C-02"}))
+
+
+def pass_questions(spec: dict, ids: set[str] | None) -> list[dict]:
+    """ids가 None이면 C-01·C-02를 뺀 시각·구성 질문, 아니면 그 질문만."""
+    text_ids = {i for _, ids_ in PASSES if ids_ for i in ids_}
+    return [q for q in ai_questions(spec) if (q["id"] in ids if ids else q["id"] not in text_ids)]
+
+
+def build_instructions(spec: dict, questions: list[dict] | None = None) -> str:
+    questions = questions if questions is not None else ai_questions(spec)
     lines = [
         "너는 카드뉴스 평가자다. 같은 원문으로 만든 카드뉴스 한 세트를 판정 질문에 따라 판정한다.",
         "어느 서비스가 만든 카드인지는 알려주지 않는다. 카드에 보이는 것만 근거로 판정한다.",
@@ -57,13 +69,15 @@ def build_instructions(spec: dict) -> str:
         "판정 규칙:",
         *[f"- {r}" for r in spec["rules"]],
         "",
-        "출력 형식은 스키마로 고정된다. 카드 단위 질문은 card_id에 카드 번호, 필수 정보 질문은 "
-        "fact_id에 필수 정보 ID를 넣고, 해당하지 않는 쪽은 null로 둔다. 판정을 빠뜨리지 않는다.",
-        "spans는 C-01 NOT_MET, C-02 CONVEYED·DISTORTED에서만 채우고 나머지는 빈 목록으로 둔다.",
+        "출력 형식은 스키마로 고정된다. 판정할 칸마다 '질문 ID|카드 번호'(카드 단위), "
+        "'질문 ID|필수 정보 ID'(필수 정보 단위), '질문 ID|SET'(세트 단위) 이름의 속성이 있고 "
+        "모두 채운다.",
+        "spans는 C-01 NOT_MET, C-02 CONVEYED·PARTIALLY_CONVEYED·DISTORTED에서만 채우고 "
+        "나머지는 빈 목록으로 둔다.",
         "",
         "판정 질문:",
     ]
-    for q in ai_questions(spec):
+    for q in questions:
         unit = {"card": "카드마다", "set": "세트 전체에 한 번", "fact": "필수 정보마다"}[q["scope"]]
         values = ", ".join(spec["verdicts"][q["kind"]])
         na = f" 해당 없음 조건: {q['not_applicable']}." if q["not_applicable"] else ""
@@ -71,39 +85,87 @@ def build_instructions(spec: dict) -> str:
     return "\n".join(lines)
 
 
-def output_schema(spec: dict) -> dict:
-    """판정 출력 JSON 스키마 (strict). 모델이 형식을 어기지 못하게 한다."""
+def slots(questions: list[dict], card_ids: list[str], fact_ids: list[str]) -> list[tuple]:
+    """판정해야 할 칸 (이름, 질문, card_id, fact_id).
+
+    이름은 '질문 ID|카드 번호·필수 정보 ID·SET'.
+    """
+    out = []
+    for q in questions:
+        refs = {
+            "card": [(c, None) for c in card_ids],
+            "set": [(None, None)],
+            "fact": [(None, f) for f in fact_ids],
+        }
+        for cid, fid in refs[q["scope"]]:
+            out.append((f"{q['id']}|{cid or fid or 'SET'}", q, cid, fid))
+    return out
+
+
+def output_schema(
+    spec: dict,
+    questions: list[dict] | None = None,
+    card_ids: list[str] | None = None,
+    fact_ids: list[str] | None = None,
+) -> dict:
+    """판정 출력 JSON 스키마 (strict).
+
+    판정할 칸마다 필수 속성을 하나씩 둬서 빠뜨리거나 ID·판정값을 섞지 못하게 한다.
+    """
+    questions = questions if questions is not None else ai_questions(spec)
     span = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["card_id", "card_text", "source_quote"],
+        "required": ["card_id", "card_text", "source_line"],
         "properties": {
             "card_id": {"type": "string"},
             "card_text": {"type": "string"},
-            "source_quote": {"type": "string"},
+            "source_line": {"type": "integer"},
         },
     }
-    verdicts = sorted({v for vs in spec["verdicts"].values() for v in vs})
-    judgment = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["question_id", "card_id", "fact_id", "verdict", "evidence", "reason", "spans"],
-        "properties": {
-            "question_id": {"type": "string", "enum": [q["id"] for q in ai_questions(spec)]},
-            "card_id": {"type": ["string", "null"]},
-            "fact_id": {"type": ["string", "null"]},
-            "verdict": {"type": "string", "enum": verdicts},
-            "evidence": {"type": "string"},
-            "reason": {"type": "string"},
-            "spans": {"type": "array", "items": span},
-        },
-    }
+
+    def judgment(q: dict) -> dict:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["verdict", "evidence", "reason", "spans"],
+            "properties": {
+                "verdict": {"type": "string", "enum": spec["verdicts"][q["kind"]]},
+                "evidence": {"type": "string"},
+                "reason": {"type": "string"},
+                "spans": {"type": "array", "items": span},
+            },
+        }
+
+    table = slots(questions, card_ids or [], fact_ids or [])
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["judgments"],
-        "properties": {"judgments": {"type": "array", "items": judgment}},
+        "required": [name for name, *_ in table],
+        "properties": {name: judgment(q) for name, q, *_ in table},
     }
+
+
+def _quote(span: dict, lines: list[str]) -> dict:
+    """모델은 원문 줄 번호만 고른다. 원문을 옮겨 쓰다 바꾸는 일을 막으려고 인용은 코드가 채운다."""
+    span = dict(span)
+    n = span.pop("source_line", None)
+    ok = isinstance(n, int) and 1 <= n <= len(lines)
+    span["source_quote"] = lines[n - 1] if ok else f"(없는 원문 줄 {n})"
+    return span
+
+
+def to_judgments(answer: dict, table: list[tuple], lines: list[str] | None = None) -> list[dict]:
+    """칸 이름으로 받은 판정을 assertion·내보내기가 쓰는 목록 형식으로 바꾼다."""
+    out = []
+    for name, q, cid, fid in table:
+        if name not in answer:
+            continue
+        item = {"question_id": q["id"], "card_id": cid, "fact_id": fid, **answer[name]}
+        if lines is not None:
+            item["spans"] = [_quote(sp, lines) for sp in item.get("spans", [])]
+        out.append(item)
+    return out
 
 
 def _image_part(path: Path) -> dict:
@@ -122,39 +184,54 @@ def _vision(options: dict, context: dict) -> dict:
     images = list_images(case_dir / vars_["service"])
     if not images:
         return {"error": f"{case_dir / vars_['service']}에 카드 이미지가 없습니다."}
-    source = (case_dir / "source.txt").read_text(encoding="utf-8")
+    lines = (case_dir / "source.txt").read_text(encoding="utf-8").splitlines()
     facts = load_facts(case_dir / "facts.json")
     spec = load_questions()
 
+    card_ids = card_ids_for(images)
     content: list[dict] = [
-        {"type": "input_text", "text": f"[원문]\n{source}"},
+        {
+            "type": "input_text",
+            "text": "[원문, 줄 번호: 내용]\n"
+            + "\n".join(f"{i}: {t}" for i, t in enumerate(lines, 1)),
+        },
         {"type": "input_text", "text": "[필수 정보]\n" + json.dumps(facts, ensure_ascii=False)},
     ]
-    for cid, path in zip(card_ids_for(images), images, strict=True):
+    for cid, path in zip(card_ids, images, strict=True):
         content.append({"type": "input_text", "text": f"[카드 {cid}]"})
         content.append(_image_part(path))
 
+    fact_ids = [f["id"] for f in facts]
     started = time.perf_counter()
-    response = OpenAI().responses.create(
-        model=model,
-        instructions=build_instructions(spec),
-        input=[{"role": "user", "content": content}],
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "card_compare_judgments",
-                "schema": output_schema(spec),
-                "strict": True,
-            }
-        },
-        temperature=0,
-        store=False,
-    )
-    usage = response.usage
-    tin, tout = (usage.input_tokens, usage.output_tokens) if usage else (0, 0)
+    judgments: list[dict] = []
+    tin = tout = 0
+    client = OpenAI()
+    for name, ids in PASSES:
+        questions = pass_questions(spec, ids)
+        response = client.responses.create(
+            model=model,
+            instructions=build_instructions(spec, questions),
+            input=[{"role": "user", "content": content}],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": f"card_compare_{name}",
+                    "schema": output_schema(spec, questions, card_ids, fact_ids),
+                    "strict": True,
+                }
+            },
+            temperature=0,
+            store=False,
+        )
+        judgments += to_judgments(
+            json.loads(response.output_text), slots(questions, card_ids, fact_ids), lines
+        )
+        if response.usage:
+            tin += response.usage.input_tokens
+            tout += response.usage.output_tokens
     price = PRICES.get(model)
     return {
-        "output": response.output_text,
+        "output": json.dumps({"judgments": judgments}, ensure_ascii=False),
         "tokenUsage": {"total": tin + tout, "prompt": tin, "completion": tout},
         "cost": (tin * price[0] + tout * price[1]) / 1_000_000 if price else None,
         "metadata": {"model": model, "seconds": round(time.perf_counter() - started, 2)},

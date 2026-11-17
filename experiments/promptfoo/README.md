@@ -53,7 +53,7 @@ PROMPTFOO_PYTHON=<레포 requirements가 설치된 python> npm run smoke
 
 - 질문마다 충족/미충족/해당 없음/판단 보류. 부분 충족은 미충족 (PresentBench, arXiv:2603.07244)
 - 카드 단위와 세트 단위를 나눠 판정 (PPTEval, EMNLP 2025), 최종 PNG로 비교 (SlidesGen-Bench, arXiv:2601.09487)
-- 사실성(C-01)과 완전성(C-02)은 합산하지 않고 따로 보고한다 (FineSurE, ACL 2024). 완전성은 필수 정보마다 전달/누락/왜곡이며, 조건이 바뀐 정보(왜곡)는 전달로 세지 않는다. 같은 오류가 C-01 미충족과 C-02 왜곡에 함께 잡힐 수 있다
+- 사실성(C-01)과 완전성(C-02)은 합산하지 않고 따로 보고한다 (FineSurE, ACL 2024). 완전성은 필수 정보마다 전달/부분 전달/누락/왜곡이며, 정의는 CardSync 완전성 검사(`ai/verification/completeness/llm/c_prompt.md`)의 COVERED/PARTIALLY_COVERED/MISSING/DISTORTED를 따른다. 부가 세부의 생략은 전달, 핵심 요소 일부가 빠지면 부분 전달, 값이 바뀌거나 조건을 빠뜨려 적용 범위가 바뀌면 왜곡이다. 부분 전달과 왜곡은 전달로 세지 않는다. 같은 오류가 C-01 미충족과 C-02 왜곡에 함께 잡힐 수 있다
 - C-01·C-02의 AI 판정은 후보다. 최종 판정은 사람이 한다. CardSync 검사기는 판정에 쓰지 않는다(자기 채점 방지)
 - D-06(최소 글자 크기), D-07(저장 문구 일치)은 AI에게 묻지 않는다. CardSync는 렌더 화면 자동 측정, 망고보드 D-07은 해당 없음
 

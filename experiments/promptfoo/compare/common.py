@@ -29,7 +29,7 @@ def load_questions(path: Path = QUESTIONS_PATH) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-FACT_FIELDS = ("id", "text", "wording", "hedge")
+FACT_FIELDS = ("id", "text", "priority", "wording", "hedge")
 
 
 def load_facts(path: Path) -> list[dict]:
@@ -79,9 +79,9 @@ def judgment_key(item: dict) -> tuple:
     return (item.get("question_id"), item.get("card_id") or None, item.get("fact_id") or None)
 
 
-_SPACE = re.compile(r"\s+")
+_NOT_WORD = re.compile(r"[\W_]+")
 
 
 def normalize(text: str) -> str:
-    """인용 확인용: 공백 차이만 무시한다."""
-    return _SPACE.sub(" ", str(text)).strip()
+    """인용 확인용: 공백·따옴표·괄호 같은 문장부호 차이는 무시하고 글자만 비교한다."""
+    return _NOT_WORD.sub("", str(text))
