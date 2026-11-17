@@ -69,7 +69,10 @@ def to_records(results: dict, date: str = "") -> list[list]:
                     f" ← 원문: {s.get('source_quote', '')}"
                     for s in spans
                 )
-            measure = len(spans) if qid == "C-01" and j.get("verdict") == "NOT_MET" else ""
+            # 틀린 문구 수. 한 문구가 원문 여러 줄에 걸치면 span이 여럿이므로 문구 기준으로 센다
+            measure = ""
+            if qid == "C-01" and j.get("verdict") == "NOT_MET":
+                measure = len({(s.get("card_id"), s.get("card_text")) for s in spans})
             records.append(
                 [
                     vars_.get("article_no", vars_.get("case_id", "")),
