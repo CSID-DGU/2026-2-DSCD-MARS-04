@@ -1,0 +1,266 @@
+{
+  "document_id": "news_014",
+  "evaluation_type": "baseline",
+  "factuality": {
+    "document_id": "news_014",
+    "model": "gpt-4.1-mini",
+    "status": "SUPPORTED",
+    "cards": [
+      {
+        "card_id": "C2",
+        "group_id": "G1",
+        "status": "SUPPORTED",
+        "fields": [
+          {
+            "unit_id": "C2:title",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "title",
+            "card_text": "아산시 전기차 보조금 대상과 규모",
+            "status": "NON_ASSERTIVE",
+            "evidence": "",
+            "reason": "제목은 단순히 주제인 '아산시 전기차 보조금 대상과 규모'를 안내할 뿐 구체적인 사실적 주장이나 수치를 포함하지 않아 독립적인 사실 주장으로 보기 어렵습니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C2:items[0]",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "items[0]",
+            "card_text": "전기차 196대 지원(일반 176대, 취약계층 20대)",
+            "status": "SUPPORTED",
+            "evidence": "아산시는 올해 출고등록 순으로 전기자동차 총 196대(일반 176대, 사회취약계층 20대)를 지원할 예정이며",
+            "reason": "카드의 '전기차 196대 지원(일반 176대, 취약계층 20대)' 주장은 근거의 동일한 수치 및 구분과 일치하여 뒷받침됩니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C2:items[1]",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "items[1]",
+            "card_text": "승용 최대 1800만원, 초소형 최대 870만원",
+            "status": "SUPPORTED",
+            "evidence": "구매보조금으로 승용은 최대 1800만원, 초소형은 870만원을 지급한다고 13일 밝혔다.",
+            "reason": "카드의 승용 최대 1800만원, 초소형 최대 870만원 주장은 근거 문구와 수치 및 한정 표현 '최대'가 모두 일치하여 정확히 뒷받침됩니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C2:items[2]",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "items[2]",
+            "card_text": "개인 1인 1대, 법인·기업 최대 3대 가능",
+            "status": "SUPPORTED",
+            "evidence": "개인의 경우 1인 1대, 법인 및 기업 등 사업자의 경우 최대 3대를 지원받을 수 있다.",
+            "reason": "개인 1인 1대, 법인·기업 최대 3대라는 내용은 근거 문장과 일치하며 대상과 한정 표현이 정확히 유지되어 사실적 주장으로 적합합니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C2:items[3]",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "items[3]",
+            "card_text": "만 18세 이상 아산시민 및 지역 내 법인",
+            "status": "SUPPORTED",
+            "evidence": "신청 대상은 3월 11일 공고일 전일까지 아산시에 주소를 둔 만 18세 이상의 시민 또는 사업장이 위치한 법인 및 기업,",
+            "reason": "카드 문구 '만 18세 이상 아산시민 및 지역 내 법인'은 근거에서 만 18세 이상 아산시 주소자의 시민과 사업장 위치한 법인을 포함하는 내용과 부합합니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C2:items[4]",
+            "card_id": "C2",
+            "group_id": "G1",
+            "field_path": "items[4]",
+            "card_text": "공공기관·지방공기업 신청 가능(중앙행정기관 제외)",
+            "status": "SUPPORTED",
+            "evidence": "공공기관 및 지방공기업(중앙행정기관 제외)이다.",
+            "reason": "카드의 '공공기관·지방공기업 신청 가능(중앙행정기관 제외)'은 근거와 일치하며 신청 대상 범위가 정확하게 유지되어 뒷받침됩니다.",
+            "error_type": null,
+            "suggested_text": null
+          }
+        ]
+      },
+      {
+        "card_id": "C3",
+        "group_id": "G2",
+        "status": "SUPPORTED",
+        "fields": [
+          {
+            "unit_id": "C3:title",
+            "card_id": "C3",
+            "group_id": "G2",
+            "field_path": "title",
+            "card_text": "전기차 구매 시 연금 자격이 변할 수 있어요",
+            "status": "SUPPORTED",
+            "evidence": "다만 장애인, 기초생활수급자, 상이유공자, 독립유공자 등 사회취약계층을 위한 전기자동차 구입 시 차량가액에 따라 기초연금, 장애인연금 등 수급대상에서 탈락될 수 있어 유의해야 한다.",
+            "reason": "카드 제목은 전기차 구매 시 연금 자격이 변할 수 있다는 점을 명확히 전달하며, 이는 근거에서 전기자동차 구입 시 차량가액에 따라 연금 수급 대상에서 탈락될 수 있다는 내용과 일치한다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C3:body",
+            "card_id": "C3",
+            "group_id": "G2",
+            "field_path": "body",
+            "card_text": "장애인 등 사회취약계층은 전기차 구매 후 차량가액에 따라 기초연금, 장애인연금 수급에서 탈락할 가능성이 있으니 주의해야 합니다.",
+            "status": "SUPPORTED",
+            "evidence": "다만 장애인, 기초생활수급자, 상이유공자, 독립유공자 등 사회취약계층을 위한 전기자동차 구입 시 차량가액에 따라 기초연금, 장애인연금 등 수급대상에서 탈락될 수 있어 유의해야 한다.",
+            "reason": "본문은 장애인 등 사회취약계층이 전기차 구매 후 차량가액에 따라 기초연금, 장애인연금 수급에서 탈락할 가능성이 있음을 명확히 언급하며, 이는 근거 문구와 핵심 의미 및 조건이 일치한다.",
+            "error_type": null,
+            "suggested_text": null
+          }
+        ]
+      },
+      {
+        "card_id": "C4",
+        "group_id": "G3",
+        "status": "SUPPORTED",
+        "fields": [
+          {
+            "unit_id": "C4:title",
+            "card_id": "C4",
+            "group_id": "G3",
+            "field_path": "title",
+            "card_text": "전기차 보조금 신청 절차와 유의사항",
+            "status": "NON_ASSERTIVE",
+            "evidence": "",
+            "reason": "제목은 전기차 보조금 신청 절차와 유의사항을 안내하는 주제형 표현으로 독립적인 사실적 주장이 없어 사실성 검증 대상이 아닙니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C4:items[0]",
+            "card_id": "C4",
+            "group_id": "G3",
+            "field_path": "items[0]",
+            "card_text": "3월 18일부터 예산 소진 시까지 신청",
+            "status": "SUPPORTED",
+            "evidence": "신청기간은 오는 18일부터 예산 소진 시까지이며",
+            "reason": "신청 기간이 '오는 18일부터 예산 소진 시까지'라는 주장은 근거문에 명확하게 일치합니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C4:items[1]",
+            "card_id": "C4",
+            "group_id": "G3",
+            "field_path": "items[1]",
+            "card_text": "환경부 보조금 시스템으로 접수 진행",
+            "status": "SUPPORTED",
+            "evidence": "올해부터는 환경부 전기자동차 구매보조금 시스템을 통해 진행된다",
+            "reason": "접수가 올해부터 환경부 전기자동차 구매보조금 시스템으로 진행된다는 내용이 근거문에 명확히 포함되어 있습니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C4:items[2]",
+            "card_id": "C4",
+            "group_id": "G3",
+            "field_path": "items[2]",
+            "card_text": "판매 대리점 방문해 구매계약과 신청서 제출",
+            "status": "SUPPORTED",
+            "evidence": "전기자동차 구매보조금 희망자는 자동차 판매대리점을 방문해 구매계약 후 보조금 지원신청서 등을 제출하면, 전기자동차 대리점은 전기자동차 구매보조금시스템([www.ev.or.kr/ps](http://www.ev.or.kr/ps))을 통해 접수한다",
+            "reason": "판매 대리점 방문 후 구매계약과 신청서 제출 절차가 근거문에 상세히 설명되어 있어 일치합니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C4:items[3]",
+            "card_id": "C4",
+            "group_id": "G3",
+            "field_path": "items[3]",
+            "card_text": "2개월 내 출고 없으면 선정 취소·대기자 전환",
+            "status": "SUPPORTED",
+            "evidence": "전기자동차 구매보조금 희망자는 보조금 신청 시 2개월 이내에 차량출고가 되지 않을 경우 선정을 취소하거나 대기자로 변경되는 불이익이 있으므로",
+            "reason": "2개월 이내 출고가 없으면 선정 취소 또는 대기자 전환 불이익이 발생한다는 내용이 근거문에 정확히 포함되어 있습니다.",
+            "error_type": null,
+            "suggested_text": null
+          }
+        ]
+      },
+      {
+        "card_id": "C5",
+        "group_id": "G4",
+        "status": "SUPPORTED",
+        "fields": [
+          {
+            "unit_id": "C5:title",
+            "card_id": "C5",
+            "group_id": "G4",
+            "field_path": "title",
+            "card_text": "아산시가 친환경차 보급을 늘립니다",
+            "status": "SUPPORTED",
+            "evidence": "아산시 기후변화대책과 관계자는 친환경자동차의 보급을 확대할 계획이라고 말했다.",
+            "reason": "제목 '아산시가 친환경차 보급을 늘립니다'는 근거인 '아산시 기후변화대책과 관계자는 친환경자동차의 보급을 확대할 계획이라고 말했다.'와 의미상 일치하며, 내용을 단정적으로 표현했으나 계획과 확장의 뜻이 동일하므로 정상입니다.",
+            "error_type": null,
+            "suggested_text": null
+          },
+          {
+            "unit_id": "C5:body",
+            "card_id": "C5",
+            "group_id": "G4",
+            "field_path": "body",
+            "card_text": "아산시 기후변화대책과 관계자는 앞으로 친환경자동차 보급을 늘리겠다고 밝혔습니다.",
+            "status": "SUPPORTED",
+            "evidence": "아산시 기후변화대책과 관계자는 친환경자동차의 보급을 확대할 계획이라고 말했다.",
+            "reason": "본문 문장 '아산시 기후변화대책과 관계자는 앞으로 친환경자동차 보급을 늘리겠다고 밝혔습니다.'는 근거 문장과 의미가 일치하여 충분히 뒷받침됩니다.",
+            "error_type": null,
+            "suggested_text": null
+          }
+        ]
+      }
+    ],
+    "input_tokens": 17603,
+    "output_tokens": 1674
+  },
+  "completeness": {
+    "document_id": "news_014",
+    "model": "gpt-4.1-mini",
+    "status": "COVERED",
+    "results": [
+      {
+        "fact_id": "G1:summary",
+        "status": "COVERED",
+        "matched_card_ids": [
+          "C2"
+        ],
+        "reason": "카드 내 항목들이 요약문의 핵심 내용을 상세히 반영하고 있어 지원 대수, 보조금 금액, 개인 및 사업자 지원 한도, 신청 대상 조건 모두 충분히 전달된다. 따라서 핵심 주장과 주요 정보가 완전하게 반영되었다.",
+        "missing_elements": []
+      },
+      {
+        "fact_id": "G2:summary",
+        "status": "COVERED",
+        "matched_card_ids": [
+          "C3"
+        ],
+        "reason": "사회취약계층이 전기차 구매 후 차량가액에 따라 기초연금, 장애인연금 등에서 탈락할 수 있다는 핵심 주장이 카드에 정확하게 반영되어 있습니다. 표현이 간결하나, 핵심 의미는 유지됩니다.",
+        "missing_elements": []
+      },
+      {
+        "fact_id": "G3:summary",
+        "status": "COVERED",
+        "matched_card_ids": [
+          "C4"
+        ],
+        "reason": "카드에 신청기간(3월 18일부터 예산 소진 시까지), 환경부 전기자동차 구매보조금 시스템을 통한 접수 절차, 판매 대리점 방문 후 구매계약 및 신청서 제출 방식, 그리고 2개월 내 차량출고 미이행 시 선정 취소 또는 대기자 전환 등의 핵심 절차와 유의사항이 명확히 포함되어 있다. 따라서 핵심 주장과 주요 정보를 충분히 반영하고 있다.",
+        "missing_elements": []
+      },
+      {
+        "fact_id": "G4:summary",
+        "status": "COVERED",
+        "matched_card_ids": [
+          "C5"
+        ],
+        "reason": "아산시 기후변화대책과 관계자가 친환경자동차 보급 확대 계획을 밝혔다는 핵심 주장이 카드에 정확히 반영되어 있습니다.",
+        "missing_elements": []
+      }
+    ],
+    "input_tokens": 12318,
+    "output_tokens": 395
+  }
+}
