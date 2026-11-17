@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from backend.core.store import Store
 from backend.main import BASE, create_app
 from backend.services.pipeline import RepoPipeline
+from data_pipeline.schemas.card import CardGeneration
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "savings.json").read_text("utf-8"))
 TEXT = " ".join(s["text"] for s in FIXTURE["sentences"])
@@ -18,8 +19,10 @@ TEXT = " ".join(s["text"] for s in FIXTURE["sentences"])
 class FakePipeline:
     """레포 함수와 같은 모양의 입출력을 돌려준다. 문장 분리는 레포 함수를 그대로 쓴다."""
 
-    def __init__(self, fail_stage=None, summary_check=None):
+    def __init__(self, fail_stage=None, summary_check=None, fail_generate=0):
         self.fail_stage = fail_stage
+        self.fail_generate = fail_generate  # 앞 n번의 카드 생성은 스키마 검증 실패로 끝난다
+        self.generate_calls = 0
         self.summary_check = summary_check or {
             "retried_group_ids": [],
             "fallback_group_ids": [],
@@ -47,6 +50,9 @@ class FakePipeline:
         return [{**g, "topic": f"주제 {g['group_id']}", "headline": "미리보기"} for g in groups]
 
     def generate(self, document_id, groups):
+        self.generate_calls += 1
+        if self.generate_calls <= self.fail_generate:
+            CardGeneration.model_validate({"layout_id": "body"})  # pydantic ValidationError
         cards = []
         for g in groups:
             cards.append(
@@ -224,6 +230,24 @@ def test_selection_errors(make_client):
         ).status_code
         == 404
     )
+
+
+def test_generation_retries_schema_failure(make_client):
+    client, pipeline = make_client(FakePipeline(fail_generate=2))
+    generated(client)
+    assert pipeline.generate_calls == 3
+
+
+def test_generation_fails_after_retries(make_client):
+    client, pipeline = make_client(FakePipeline(fail_generate=3))
+    doc_id = analyzed(client)
+    client.put(f"{BASE}/documents/{doc_id}/selection", json={"required_group_ids": ["G1"]})
+    res = client.post(f"{BASE}/documents/{doc_id}/cards")
+    job = client.get(f"{BASE}/jobs/{res.json()['data']['job_id']}").json()["data"]
+    assert pipeline.generate_calls == 3
+    assert job["status"] == "failed"
+    assert job["error"] == {"type": "ValidationError", "stage": "cards"}
+    assert client.get(f"{BASE}/documents/{doc_id}").json()["data"]["status"] == "generation_failed"
 
 
 def test_analysis_failure_hides_message(make_client):
