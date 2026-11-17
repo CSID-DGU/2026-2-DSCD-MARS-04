@@ -205,6 +205,28 @@ def test_export_keeps_factuality_and_completeness_separate():
     assert summary["완전성_전달률"] == 0.5
 
 
+def test_export_counts_wrong_phrases_not_spans():
+    span = {"card_id": "C2", "card_text": "월 20만 원", "source_line": 1, "source_quote": "원문 1"}
+    judgment = {
+        "question_id": "C-01",
+        "card_id": "C2",
+        "verdict": "NOT_MET",
+        "evidence": "x",
+        "spans": [span, {**span, "source_line": 2, "source_quote": "원문 2"}],
+    }
+    results = {
+        "results": [
+            {
+                "vars": {"article_no": 1, "service": "CardSync"},
+                "response": {"output": json.dumps({"judgments": [judgment]})},
+            }
+        ]
+    }
+    (record,) = to_records(results)
+    assert record[6] == 1
+    assert summarize(to_records(results))["CardSync"]["사실성_틀린문구수"] == 1
+
+
 def test_load_facts_passes_only_fact_fields(tmp_path: Path):
     path = tmp_path / "facts.json"
     path.write_text(
