@@ -15,7 +15,7 @@ from ai.verification.factuality.llm.llm_checker import LLMFactualityResult
 
 load_dotenv()
 
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 FeedbackCategory = Literal["ERROR", "OMISSION", "REVIEW"]
 
@@ -236,8 +236,13 @@ def merge_feedback(
         "findings": findings,
     }
 
+    # gpt-5·6 계열은 생각 단계가 기본으로 켜져 있어 끈다 (consistency/checker.py와 같은 설정)
+    extra = (
+        {"reasoning": {"effort": "none"}} if selected_model.startswith(("gpt-5", "gpt-6")) else {}
+    )
     response = client.responses.parse(
         model=selected_model,
+        **extra,
         instructions=load_feedback_prompt(),
         input=json.dumps(payload, ensure_ascii=False),
         text_format=FeedbackResponse,

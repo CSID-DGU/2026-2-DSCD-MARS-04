@@ -14,11 +14,11 @@ from ai.verification.shared.card_text_extractor import (
     extract_card_texts,
 )
 from data_pipeline.schemas.card import Card, FinalCardOutput
-from data_pipeline.schemas.group import Group
+from data_pipeline.schemas.group import Group, Sentence
 
 load_dotenv()
 
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 VerificationStatus = Literal[
     "SUPPORTED",
@@ -51,7 +51,7 @@ class LLMJudgment(BaseModel):
 
     unit_id: str
     status: VerificationStatus
-    evidence: str
+    evidence_sids: list[str]
     reason: str
     error_type: str | None
     suggested_text: str | None
@@ -121,49 +121,48 @@ def aggregate_status(
 
 def validate_judgment(
     judgment: LLMJudgment,
-    summary: str,
-) -> LLMJudgment:
-    evidence = judgment.evidence.strip()
+    sentences: dict[str, str],
+) -> tuple[LLMJudgment, str]:
+    """근거 문장 ID를 검사하고, 판정과 근거 문장 원문(이어 붙인 것)을 돌려준다."""
+
+    sids = list(dict.fromkeys(judgment.evidence_sids))
     reason = judgment.reason.strip()
 
-    if evidence and evidence not in summary:
-        return LLMJudgment(
-            unit_id=judgment.unit_id,
-            status="UNCERTAIN",
-            evidence="",
-            reason="모델이 제시한 근거가 그룹 요약문에 존재하지 않습니다.",
-            error_type=None,
-            suggested_text=None,
+    def uncertain(why: str) -> tuple[LLMJudgment, str]:
+        return (
+            LLMJudgment(
+                unit_id=judgment.unit_id,
+                status="UNCERTAIN",
+                evidence_sids=[],
+                reason=why,
+                error_type=None,
+                suggested_text=None,
+            ),
+            "",
         )
 
-    if judgment.status == "SUPPORTED" and not evidence:
-        return LLMJudgment(
-            unit_id=judgment.unit_id,
-            status="UNCERTAIN",
-            evidence="",
-            reason="모델이 정상으로 판단했지만 근거 문구를 제시하지 않았습니다.",
-            error_type=None,
-            suggested_text=None,
-        )
+    unknown = [sid for sid in sids if sid not in sentences]
+    if unknown:
+        return uncertain(f"모델이 제시한 근거 문장 ID가 그룹 문장에 없습니다: {unknown}")
 
+    if judgment.status == "SUPPORTED" and not sids:
+        return uncertain("모델이 정상으로 판단했지만 근거 문장 ID를 제시하지 않았습니다.")
+
+    evidence = " ".join(sentences[sid] for sid in sids)
     if judgment.status == "NON_ASSERTIVE":
-        return LLMJudgment(
-            unit_id=judgment.unit_id,
-            status="NON_ASSERTIVE",
-            evidence=evidence,
-            reason=reason,
-            error_type=None,
-            suggested_text=None,
+        return (
+            LLMJudgment(
+                unit_id=judgment.unit_id,
+                status="NON_ASSERTIVE",
+                evidence_sids=sids,
+                reason=reason,
+                error_type=None,
+                suggested_text=None,
+            ),
+            evidence,
         )
 
-    return LLMJudgment(
-        unit_id=judgment.unit_id,
-        status=judgment.status,
-        evidence=evidence,
-        reason=reason,
-        error_type=judgment.error_type,
-        suggested_text=judgment.suggested_text,
-    )
+    return judgment.model_copy(update={"evidence_sids": sids, "reason": reason}), evidence
 
 
 def validate_card_response(
@@ -182,7 +181,7 @@ def validate_card_response(
 def verify_card(
     card: Card,
     units: list[CardTextUnit],
-    summary: str,
+    sentences: list[Sentence],
     *,
     client: OpenAI,
     model: str,
@@ -194,7 +193,7 @@ def verify_card(
         "card_id": card.card_id,
         "group_id": card.group_id,
         "card_title": card.title,
-        "evidence_summary": summary,
+        "evidence_sentences": [s.model_dump() for s in sentences],
         "fields": [
             {
                 "unit_id": unit.unit_id,
@@ -206,8 +205,11 @@ def verify_card(
         ],
     }
 
+    # gpt-5·6 계열은 생각 단계가 기본으로 켜져 있어 끈다 (consistency/checker.py와 같은 설정)
+    extra = {"reasoning": {"effort": "none"}} if model.startswith(("gpt-5", "gpt-6")) else {}
     response = client.responses.parse(
         model=model,
+        **extra,
         instructions=load_verification_prompt(),
         input=json.dumps(payload, ensure_ascii=False),
         text_format=LLMCardResponse,
@@ -222,12 +224,10 @@ def verify_card(
     judgment_map = validate_card_response(parsed, units)
 
     results = []
+    texts = {s.sentence_id: s.text for s in sentences}
 
     for unit in units:
-        judgment = validate_judgment(
-            judgment_map[unit.unit_id],
-            summary,
-        )
+        judgment, evidence = validate_judgment(judgment_map[unit.unit_id], texts)
 
         results.append(
             LLMFieldResult(
@@ -237,7 +237,7 @@ def verify_card(
                 field_path=unit.field_path,
                 card_text=unit.text,
                 status=judgment.status,
-                evidence=judgment.evidence,
+                evidence=evidence,
                 reason=judgment.reason,
                 error_type=judgment.error_type,
                 suggested_text=judgment.suggested_text,
@@ -258,10 +258,20 @@ def check_llm_factuality(
     *,
     model: str | None = None,
     client: OpenAI | None = None,
+    sentences: list[Sentence] | None = None,
 ) -> LLMFactualityResult:
+    """원문 문장(sentences)이 있으면 그 문장을, 없으면 그룹 요약 전체를 근거 하나로 본다."""
+
     selected_model = model or os.getenv("VERIFICATION_MODEL") or DEFAULT_MODEL
 
-    group_map = {group.group_id: group.summary for group in groups}
+    by_id = {s.sentence_id: s for s in sentences or []}
+    group_map = {
+        group.group_id: (
+            [by_id[sid] for sid in group.sentence_ids if sid in by_id]
+            or [Sentence(sentence_id=group.group_id, text=group.summary)]
+        )
+        for group in groups
+    }
 
     if len(group_map) != len(groups):
         raise ValueError("그룹 ID가 중복되었습니다.")
@@ -319,7 +329,7 @@ def check_llm_factuality(
         field_results, input_tokens, output_tokens = verify_card(
             card=card,
             units=card_units,
-            summary=group_map[card.group_id],
+            sentences=group_map[card.group_id],
             client=client,
             model=selected_model,
         )
