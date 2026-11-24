@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 
 from data_pipeline.schemas.card import (
@@ -8,6 +9,7 @@ from data_pipeline.schemas.card import (
 BODY_LAYOUTS = {"body", "compare", "checklist", "steps"}
 BOUNDARY_LAYOUTS = ("cover", "closing")
 LAYOUT_FIELDS = {"category", "body", "items", "left", "right", "cta"}
+FIELD_PATH = re.compile(r"title|body|left|right|items\[\d+\]")
 
 
 def validate_input(request: CardGenerationInput) -> None:
@@ -101,6 +103,18 @@ def validate_output(
     for group_id in expected_order:
         if not 1 <= counts[group_id] <= 2:
             raise ValueError(f"{group_id}: 그룹당 카드는 1~2장이어야 합니다.")
+
+    for card in result.cards:
+        group = group_map[card.group_id]
+        if not card.sources:
+            raise ValueError(f"{card.group_id}: 문구별 근거 문장(sources)이 없습니다.")
+        for source in card.sources:
+            if not FIELD_PATH.fullmatch(source.field_path):
+                raise ValueError(f"{card.group_id}: 알 수 없는 문구 위치 {source.field_path}")
+            if not source.sids or not set(source.sids) <= set(group.sentence_ids):
+                raise ValueError(
+                    f"{card.group_id}: {source.field_path}의 근거 문장 ID가 잘못되었습니다."
+                )
 
     for card in result.cards:
         group_id = card.group_id
@@ -203,6 +217,15 @@ def validate_output(
 
             else:
                 raise ValueError(f"{group_id}: 지원하지 않는 필드 유형 {field_type}")
+
+    # 마지막에 검사해 다른 오류를 가리지 않는다. 비엄격 모드는 이 오류를 글자 수 초과처럼 넘긴다
+    for group_id in expected_order:
+        need = request.card_counts.get(group_id, 1)
+        if counts[group_id] < need:
+            raise ValueError(
+                f"{group_id}: 카드 수 부족 (실제 {counts[group_id]}장 / 최소 {need}장). "
+                "요약이 길어 카드 1장에 담기지 않으므로 의미 단위로 2장에 나누세요."
+            )
 
 
 def validate_boundary_output(
