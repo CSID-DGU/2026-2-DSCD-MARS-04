@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -45,6 +46,10 @@ def body_card(**extra):
         "group_id": "G1",
         "layout_id": "body",
         "sids": ["S1", "S2"],
+        "sources": [
+            {"field_path": "title", "sids": ["S1"]},
+            {"field_path": "body", "sids": ["S1", "S2"]},
+        ],
         "title": "청년 지원금 월 20만 원",
         "body": LONG_BODY,
         "image_query": "youth support",
@@ -104,3 +109,52 @@ def test_non_strict_still_rejects_other_errors(tmp_path):
     client = fake_client(body_card(cta="확인하기"))
     with pytest.raises(ValueError, match="사용하지 않는 필드"):
         run(client, tmp_path, strict=False)
+
+
+def test_long_group_requires_two_cards():
+    from ai.generation.card_generator import required_card_counts
+
+    layouts = load_all_layout_options("data/layouts.json")
+    long = GROUPS[0].model_copy(update={"group_id": "G2", "summary": "가" * 300})
+    assert required_card_counts([GROUPS[0], long], layouts) == {"G1": 1, "G2": 2}
+
+
+def test_sids_follow_field_sources_in_sentence_order():
+    from ai.generation.card_generator import sync_sids
+
+    card = body_card(
+        sids=["S1", "S2", "S3"],
+        sources=[
+            {"field_path": "title", "sids": ["S3"]},
+            {"field_path": "body", "sids": ["S1"]},
+        ],
+    )
+    result = sync_sids(
+        CardGenerationOutput.model_validate({"document_id": "d1", "cards": [card]}),
+        ["S1", "S2", "S3"],
+    )
+    assert result.cards[0].sids == ["S1", "S3"]  # 쓰지 않은 S2는 빠진다
+
+
+def test_one_card_for_long_group_is_rejected_in_strict_mode(tmp_path):
+    from data_pipeline.schemas.group import Sentence
+
+    long = [GROUPS[0].model_copy(update={"summary": "가" * 300})]
+    card = body_card(body="월 20만 원을 지원하며 다음 달부터 신청할 수 있습니다.")
+    client = fake_client(card)
+    with pytest.raises(ValueError, match="카드 수 부족"):
+        generate_cards(
+            "d1",
+            long,
+            SELECTIONS,
+            load_all_layout_options("data/layouts.json"),
+            client=client,
+            log_path=tmp_path / "log.jsonl",
+            sentences=[
+                Sentence(sentence_id="S1", text="문장1"),
+                Sentence(sentence_id="S9", text="x"),
+            ],
+        )
+    sent = json.loads(client.responses.parse.call_args_list[0].kwargs["input"][1]["content"])
+    assert sent["card_counts"] == {"G1": 2}
+    assert sent["sentences"] == [{"sentence_id": "S1", "text": "문장1"}]  # 선택 그룹 문장만

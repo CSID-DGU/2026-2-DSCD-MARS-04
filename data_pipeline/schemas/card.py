@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-from data_pipeline.schemas.group import Group
+from data_pipeline.schemas.group import Group, Sentence
 from data_pipeline.schemas.layout import LayoutOption, LayoutSelection
 
 
@@ -12,12 +12,21 @@ class CardGenerationInput(BaseModel):
     groups: list[Group]
     layout_selections: list[LayoutSelection]
     available_layouts: list[LayoutOption]
+    # 그룹 문장 원문. 문구마다 근거 문장 ID를 고르려면 ID만이 아니라 문장 내용이 필요하다
+    sentences: list[Sentence] = []
+    # 그룹 ID → 최소 카드 수. 요약이 카드 1장에 담기지 않을 만큼 길면 2
+    card_counts: dict[str, int] = {}
 
 
 # ② 비교형 카드의 왼쪽·오른쪽 내용
 class CompareSide(BaseModel):
     label: str
     value: str
+
+
+class FieldSource(BaseModel):
+    field_path: str  # title, body, items[0], left, right
+    sids: list[str]
 
 
 # ③ 레이아웃별 카드 문구 생성 결과
@@ -35,6 +44,8 @@ class CardGeneration(BaseModel):
     left: CompareSide | None = None
     right: CompareSide | None = None
     cta: str | None = None
+    # 문구별 근거 문장 ID. 카드에 쓰이지 않은 그룹 문장을 찾는 데 쓴다
+    sources: list[FieldSource] = []
 
     @model_validator(mode="after")
     def validate_layout_fields(self):

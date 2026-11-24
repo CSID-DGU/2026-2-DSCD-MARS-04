@@ -16,7 +16,7 @@ from data_pipeline.schemas.card import (
     CardGenerationInput,
     CardGenerationOutput,
 )
-from data_pipeline.schemas.group import Group
+from data_pipeline.schemas.group import Group, Sentence
 from data_pipeline.schemas.layout import LayoutOption, LayoutSelection
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,8 +40,28 @@ def save_log(record: dict, log_path: Path | None) -> None:
 
 
 def _only_over_limit(error: ValueError) -> bool:
-    # card_checks가 모든 오류를 ValueError로 내므로 메시지로 글자 수 초과만 가려낸다
-    return "글자 수 초과" in str(error)
+    # card_checks가 모든 오류를 ValueError로 내므로 메시지로 글자 수 초과·카드 수 부족만 가려낸다
+    return "글자 수 초과" in str(error) or "카드 수 부족" in str(error)
+
+
+def required_card_counts(groups: list[Group], layouts: list[LayoutOption]) -> dict[str, int]:
+    """요약이 본문 카드 2장 분량을 넘는 그룹은 2장으로 만든다 (팀 합의: 긴 그룹은 2장)."""
+
+    body = next(option for option in layouts if option.layout_id == "body")
+    one_card = sum(rule["max_chars"] for rule in body.fields.values() if rule["type"] == "text")
+    return {group.group_id: 2 if len(group.summary) > 2 * one_card else 1 for group in groups}
+
+
+def sync_sids(result: CardGenerationOutput, order: list[str]) -> CardGenerationOutput:
+    """카드 sids를 문구별 근거(sources)의 합집합으로 맞춘다. 원문 문장 순서를 따른다."""
+
+    rank = {sid: i for i, sid in enumerate(order)}
+    for card in result.cards:
+        if card.group_id is None or not card.sources:
+            continue
+        used = {sid for source in card.sources for sid in source.sids}
+        card.sids = sorted(used, key=lambda sid: rank.get(sid, len(rank)))
+    return result
 
 
 def build_group_request(
@@ -54,11 +74,14 @@ def build_group_request(
         selection for selection in request.layout_selections if selection.group_id == group_id
     ]
 
+    sids = {sid for group in groups for sid in group.sentence_ids}
     return CardGenerationInput(
         document_id=request.document_id,
         groups=groups,
         layout_selections=selections,
         available_layouts=request.available_layouts,
+        sentences=[s for s in request.sentences if s.sentence_id in sids],
+        card_counts={k: v for k, v in request.card_counts.items() if k == group_id},
     )
 
 
@@ -143,7 +166,8 @@ def build_correction_message(
         "12. 원문에 없는 사실이나 해석을 추가하지 마세요.\n"
         "13. 제목과 본문이 동일한 내용을 불필요하게 반복하지 않도록 하세요.\n"
         "14. group_id와 선택된 layout_id를 유지하세요.\n"
-        "15. sids에는 해당 그룹의 문장 ID만 사용하세요.\n"
+        "15. sids와 sources에는 해당 그룹의 문장 ID만 사용하세요. "
+        "sources에는 문구(title, body, items[0] 등)마다 실제로 근거가 된 문장 ID를 적으세요.\n"
         "16. 다른 그룹의 카드를 생성하지 마세요.\n"
         "17. document_id를 원래 입력과 동일하게 유지하세요.\n\n"
         "수정할 그룹의 원래 입력:\n"
@@ -167,6 +191,7 @@ def generate_cards(
     log_path: Path | None = None,
     include_boundary_cards: bool = False,
     strict: bool = True,
+    sentences: list[Sentence] | None = None,
 ) -> CardGenerationOutput:
     """Generate body cards and optionally return the generated cover and closing pair.
 
@@ -207,11 +232,15 @@ def generate_cards(
                 *(option for option in all_layouts if option.layout_id not in supplied),
             ]
 
+        selected_sids = [sid for group in groups for sid in group.sentence_ids]
+        card_counts = required_card_counts(groups, available_layouts)
         request = CardGenerationInput(
             document_id=document_id,
             groups=groups,
             layout_selections=layout_selections,
             available_layouts=available_layouts,
+            sentences=[s for s in sentences or [] if s.sentence_id in set(selected_sids)],
+            card_counts=card_counts,
         )
 
         validate_input(request)
@@ -237,6 +266,9 @@ def generate_cards(
         record["model"] = selected_model
 
         api = client if client is not None else OpenAI()
+        # gpt-5·6 계열은 생각 단계가 기본으로 켜져 있어 끈다 (검사기와 같은 설정)
+        thinks = selected_model.startswith(("gpt-5", "gpt-6"))
+        extra = {"reasoning": {"effort": "none"}} if thinks else {}
 
         def call_model(user_message: str) -> CardGenerationOutput:
             """Call the model and accumulate token usage."""
@@ -246,6 +278,7 @@ def generate_cards(
 
             response = api.responses.parse(
                 model=selected_model,
+                **extra,
                 input=[
                     {
                         "role": "system",
@@ -285,7 +318,9 @@ def generate_cards(
             if response.output_parsed is None:
                 raise RuntimeError("카드 생성 결과를 파싱하지 못했습니다.")
 
-            return CardGenerationOutput.model_validate(response.output_parsed)
+            return sync_sids(
+                CardGenerationOutput.model_validate(response.output_parsed), selected_sids
+            )
 
         # 1. 모든 그룹의 카드를 한 번에 생성
         initial_result = call_model(request.model_dump_json())
@@ -452,6 +487,9 @@ def generate_cards(
         record["status"] = "success"
         record["stage"] = "completed"
         record["card_count"] = len(final_result.cards)
+        record["two_card_group_ids"] = [g for g, n in request.card_counts.items() if n > 1]
+        used = {sid for card in validated_cards for sid in card.sids}
+        record["unused_sids"] = [sid for sid in selected_sids if sid not in used]
 
         if include_boundary_cards:
             return final_result
