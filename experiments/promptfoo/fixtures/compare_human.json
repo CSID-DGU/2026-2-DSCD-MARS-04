@@ -2,12 +2,12 @@
   {
     "question_id": "C-01",
     "card_id": "C2",
-    "verdict": "NOT_MET"
+    "verdict": "POSSIBLE_DISTORTION"
   },
   {
     "question_id": "C-02",
     "fact_id": "F1",
-    "verdict": "CONVEYED"
+    "verdict": "COVERED"
   },
   {
     "question_id": "C-02",
