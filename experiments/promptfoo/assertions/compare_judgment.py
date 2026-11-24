@@ -4,10 +4,13 @@
    (판정 내용의 옳고 그름은 보지 않음)
    - 모든 (질문, 카드), (질문, 세트), (C-02, 필수 정보)에 판정이 정확히 하나씩 있는가
    - verdict가 질문 종류별 허용값인가
-   - NOT_MET·UNCERTAIN·PARTIALLY_CONVEYED·MISSING·DISTORTED에 evidence가 있고,
+   - NOT_MET·UNCERTAIN·POSSIBLE_DISTORTION·INSUFFICIENT_EVIDENCE·PARTIALLY_COVERED·MISSING·
+     DISTORTED에 evidence가 있고,
      NOT_APPLICABLE에 reason이 있는가
-   - C-01 NOT_MET, C-02 CONVEYED·PARTIALLY_CONVEYED·DISTORTED의 spans에 카드 번호와 문구가 있는가
+   - C-01 POSSIBLE_DISTORTION·INSUFFICIENT_EVIDENCE, C-02 COVERED·PARTIALLY_COVERED·DISTORTED의
+     spans에 카드 번호와 문구가 있는가
    - spans의 source_quote가 원문에 실제로 있는가 (공백 차이만 무시)
+   - C-02 PARTIALLY_COVERED·DISTORTED에 missing_elements가 있고, COVERED·MISSING은 비어 있는가
 2) human_agreement: 사람 판정(vars.human)이 있는 사례에서 AI 판정과 같은 비율.
    기준값은 vars.min_agreement
 """
@@ -23,10 +26,18 @@ from experiments.promptfoo.compare.common import (
     judgment_key,
     load_questions,
     normalize,
+    summary_items,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-NEEDS_EVIDENCE = {"NOT_MET", "UNCERTAIN", "PARTIALLY_CONVEYED", "MISSING", "DISTORTED"}
+FACT_PROBLEMS = {"POSSIBLE_DISTORTION", "INSUFFICIENT_EVIDENCE"}
+NEEDS_EVIDENCE = FACT_PROBLEMS | {
+    "NOT_MET",
+    "UNCERTAIN",
+    "PARTIALLY_COVERED",
+    "MISSING",
+    "DISTORTED",
+}
 
 
 def _as_list(value) -> list:
@@ -47,6 +58,15 @@ def _parse(output: str) -> list[dict] | None:
 def _source(vars_: dict) -> str | None:
     if vars_.get("source"):
         return str(vars_["source"])
+    if vars_.get("case_dir") and vars_.get("basis") == "summary":
+        # 요약 기준 판정은 그룹 요약(또는 요약 문장)을 근거 줄로 쓴다 (compare_judge.py와 같은 함수)
+        case_dir = ROOT / vars_["case_dir"]
+        record_file = vars_.get("record_file", "cardsync_record.json")
+        unit = vars_.get("unit", "group")
+        units = ["group", "sentence"] if unit == "mixed" else [unit]
+        return "\n".join(
+            f"[{i}] {t}" for u in units for i, t in summary_items(case_dir, record_file, u)
+        )
     if vars_.get("case_dir"):
         path = ROOT / vars_["case_dir"] / "source.txt"
         if path.exists():
@@ -82,9 +102,15 @@ def check_judgments(
         if verdict == "NOT_APPLICABLE" and not str(item.get("reason", "")).strip():
             problems.append(f"{qid} {key[1] or '세트'}: NOT_APPLICABLE인데 reason 없음")
 
-        needs_span = (qid == "C-01" and verdict == "NOT_MET") or (
-            qid == "C-02" and verdict in {"CONVEYED", "PARTIALLY_CONVEYED", "DISTORTED"}
+        needs_span = (qid == "C-01" and verdict in FACT_PROBLEMS) or (
+            qid == "C-02" and verdict in {"COVERED", "PARTIALLY_COVERED", "DISTORTED"}
         )
+        if qid == "C-02":
+            missing_el = item.get("missing_elements") or []
+            if verdict in {"PARTIALLY_COVERED", "DISTORTED"} and not missing_el:
+                problems.append(f"{qid} {key[2]}: {verdict}인데 missing_elements 없음")
+            if verdict in {"COVERED", "MISSING"} and missing_el:
+                problems.append(f"{qid} {key[2]}: {verdict}인데 missing_elements 있음")
         spans = item.get("spans") or []
         if not isinstance(spans, list) or not all(isinstance(s, dict) for s in spans):
             problems.append(f"{qid} {key[1] or key[2] or '세트'}: spans는 객체 목록이어야 함")

@@ -8,7 +8,8 @@ promptfoo Python provider 규약: call_api(prompt, options, context).
 context["vars"]: case_id, service, case_dir(vision 모드)
 
 출력 JSON: {"judgments": [{"question_id", "card_id", "fact_id", "verdict", "evidence", "reason",
-                         "spans": [{"card_id", "card_text", "source_quote"}]}]}
+                         "spans": [{"card_id", "card_text", "source_quote", "status"(C-01만)}],
+                         "missing_elements"(C-02만)}]}
 """
 
 from __future__ import annotations
@@ -25,14 +26,16 @@ from experiments.promptfoo.compare.common import (
     list_images,
     load_facts,
     load_questions,
+    summary_items,
+    tag_file,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "compare_fixtures.json"
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 # 입력 단가(USD / 100만 토큰). 레포 ai/analysis/agent.py PRICES와 같은 값만 둔다.
-PRICES = {"gpt-4.1-mini": (0.40, 1.60)}
+PRICES = {"gpt-4.1-mini": (0.40, 1.60), "gpt-6-luna": (0.10, 0.50)}
 
 
 def _replay(context: dict) -> dict:
@@ -53,6 +56,47 @@ def _replay(context: dict) -> dict:
 # 판정값·ID를 섞는다(11-08 실측: 38건 중 7건만 형식 통과). 그래서 질문을 세 번에 나눠 묻는다.
 PASSES = (("visual", None), ("factuality", {"C-01"}), ("completeness", {"C-02"}))
 
+# 수연님 완전성 검사 프롬프트. 4절(핵심·부가 판단 기준)을 그대로 읽어 쓴다
+C_PROMPT_CORE = ROOT / "ai/verification/completeness/llm/c_prompt.md"
+SUMMARY_BASIS_NOTE = """
+
+[이번 판정의 근거: CardSync 그룹 요약]
+- 위 지시의 '원문'은 모두 아래에 주는 그룹 요약으로 읽는다. 원문 줄 번호는 그룹 요약 줄 번호다.
+- 필수 정보 항목은 그룹 요약 하나씩이다. 중요도는 적혀 있지 않다.
+- 완전성(C-02)은 CardSync 완전성 검사와 같은 방식으로 판정한다.
+  각 그룹 요약에서 먼저 아래 기준으로 핵심 주장과 필수적인 주요 정보,
+  생략해도 되는 부가 정보를 나눈 뒤, 핵심 의미가 카드 세트에 전달됐는지 본다.
+  부가 정보만 빠졌으면 COVERED다. missing_elements에는 빠진 핵심 요소만 적는다.
+
+[핵심 의미 판단 기준 (CardSync 완전성 검사 4절)]
+"""
+LENIENT_MODIFIER_NOTE = """
+
+[꾸밈말 누락 기준: 너그럽게]
+- 문장의 핵심 사실(대상, 금액·수치, 기간·시점, 적용 조건, 신청 방법, 확정 여부)이
+  카드에 있으면 COVERED다.
+- 사실을 꾸미는 말만 빠진 것은 감점하지 않는다.
+  예: "대학병원 경력 5년 이상 간호사" → "경력 5년 이상 간호사",
+  "사업 수행 업체가 운영하는 센터에 신청" → "센터에 신청", "온라인·오프라인 교구" → "교구".
+- 핵심 사실이 하나라도 빠지거나 바뀌면 지금처럼 PARTIALLY_COVERED 또는 DISTORTED다."""
+MIXED_UNIT_NOTE = """
+
+[판정 단위]
+- 사실성(C-01)의 근거는 그룹 요약이다. 그룹 하나가 근거 한 줄이다.
+- 완전성(C-02) 항목은 그룹 요약의 문장 하나씩이다 (G4-2 = G4 요약의 두 번째 문장).
+  판정은 그 문장 하나만 본다. 다른 문장의 내용이 빠진 것은 반영하지 않는다.
+- 각 문장의 중요도(priority: 핵심/부가)는 카드를 보기 전에 요약만 보고 미리 정해 두었다.
+  중요도를 바꾸거나 다시 판단하지 않는다. 부가 문장은 세부 생략에 너그럽게 본다."""
+SENTENCE_UNIT_NOTE = """
+
+[완전성 항목 단위: 그룹 요약 문장]
+- 필수 정보 항목은 그룹 요약의 문장 하나씩이다 (G4-2 = G4 요약의 두 번째 문장).
+- 각 문장이 그 그룹의 핵심인지 부가인지 아래 4절 기준으로 판단하고,
+  C-02 reason 맨 앞에 [핵심] 또는 [부가]를 적는다.
+- 판정은 문장 하나만 본다. 다른 문장의 내용이 빠진 것은 그 문장의 판정에 반영하지 않는다.
+- 부가 문장이 카드에 없으면 MISSING으로 두고 reason에 [부가]를 붙인다.
+  집계는 핵심 문장만 따로 센다."""
+
 
 def pass_questions(spec: dict, ids: set[str] | None) -> list[dict]:
     """ids가 None이면 C-01·C-02를 뺀 시각·구성 질문, 아니면 그 질문만."""
@@ -72,7 +116,8 @@ def build_instructions(spec: dict, questions: list[dict] | None = None) -> str:
         "출력 형식은 스키마로 고정된다. 판정할 칸마다 '질문 ID|카드 번호'(카드 단위), "
         "'질문 ID|필수 정보 ID'(필수 정보 단위), '질문 ID|SET'(세트 단위) 이름의 속성이 있고 "
         "모두 채운다.",
-        "spans는 C-01 NOT_MET, C-02 CONVEYED·PARTIALLY_CONVEYED·DISTORTED에서만 채우고 "
+        "spans는 C-01 POSSIBLE_DISTORTION·INSUFFICIENT_EVIDENCE, "
+        "C-02 COVERED·PARTIALLY_COVERED·DISTORTED에서만 채우고 "
         "나머지는 빈 목록으로 둔다.",
         "",
         "판정 질문:",
@@ -124,17 +169,30 @@ def output_schema(
         },
     }
 
+    # C-01 span에는 문구별 판정값을 붙여 왜곡 의심과 근거 부족을 따로 셀 수 있게 한다
+    span_c01 = {
+        **span,
+        "required": span["required"] + ["status"],
+        "properties": {
+            **span["properties"],
+            "status": {"type": "string", "enum": ["POSSIBLE_DISTORTION", "INSUFFICIENT_EVIDENCE"]},
+        },
+    }
+
     def judgment(q: dict) -> dict:
+        props = {
+            "verdict": {"type": "string", "enum": spec["verdicts"][q["kind"]]},
+            "evidence": {"type": "string"},
+            "reason": {"type": "string"},
+            "spans": {"type": "array", "items": span_c01 if q["id"] == "C-01" else span},
+        }
+        if q["id"] == "C-02":  # CardSync 완전성 검사 출력과 같은 빠진 요소 목록
+            props["missing_elements"] = {"type": "array", "items": {"type": "string"}}
         return {
             "type": "object",
             "additionalProperties": False,
-            "required": ["verdict", "evidence", "reason", "spans"],
-            "properties": {
-                "verdict": {"type": "string", "enum": spec["verdicts"][q["kind"]]},
-                "evidence": {"type": "string"},
-                "reason": {"type": "string"},
-                "spans": {"type": "array", "items": span},
-            },
+            "required": list(props),
+            "properties": props,
         }
 
     table = slots(questions, card_ids or [], fact_ids or [])
@@ -184,34 +242,74 @@ def _vision(options: dict, context: dict) -> dict:
     images = list_images(case_dir / vars_["service"])
     if not images:
         return {"error": f"{case_dir / vars_['service']}에 카드 이미지가 없습니다."}
-    lines = (case_dir / "source.txt").read_text(encoding="utf-8").splitlines()
-    facts = load_facts(case_dir / "facts.json")
     spec = load_questions()
+    basis_note = ""
+    if vars_.get("basis") == "summary":
+        # CardSync 그룹 요약을 두 서비스 공통 근거로 쓴다. 근거 한 줄 = 완전성 항목 하나
+        unit = vars_.get("unit", "group")
+        record_file = vars_.get("record_file", "cardsync_record.json")
+        # mixed: 사실성은 그룹 단위 근거, 완전성은 문장 단위 항목 + 미리 정한 핵심·부가 표시
+        items = summary_items(case_dir, record_file, "sentence" if unit == "mixed" else unit)
+        lines = [f"[{i}] {t}" for i, t in items]
+        facts = [{"id": i, "text": t} for i, t in items]
+        label = "[그룹 요약, 줄 번호: 내용]"
+        core = C_PROMPT_CORE.read_text(encoding="utf-8").split("## 4.", 1)[1]
+        unit_note = {"sentence": SENTENCE_UNIT_NOTE, "mixed": MIXED_UNIT_NOTE}.get(unit, "")
+        basis_note = unit_note + SUMMARY_BASIS_NOTE + core.split("\n## 5.", 1)[0]
+
+        if unit == "mixed":
+            tags = json.loads((case_dir / tag_file(record_file)).read_text(encoding="utf-8"))
+            facts = [{**f, "priority": tags[f["id"]]} for f in facts]
+            group_lines = [f"[{i}] {t}" for i, t in summary_items(case_dir, record_file, "group")]
+    else:
+        lines = (case_dir / "source.txt").read_text(encoding="utf-8").splitlines()
+        facts = load_facts(case_dir / vars_.get("facts_file", "facts.json"))
+        label = "[원문, 줄 번호: 내용]"
 
     card_ids = card_ids_for(images)
     content: list[dict] = [
         {
             "type": "input_text",
-            "text": "[원문, 줄 번호: 내용]\n"
-            + "\n".join(f"{i}: {t}" for i, t in enumerate(lines, 1)),
+            "text": label + "\n" + "\n".join(f"{i}: {t}" for i, t in enumerate(lines, 1)),
         },
         {"type": "input_text", "text": "[필수 정보]\n" + json.dumps(facts, ensure_ascii=False)},
     ]
+    cards_part: list[dict] = []
     for cid, path in zip(card_ids, images, strict=True):
-        content.append({"type": "input_text", "text": f"[카드 {cid}]"})
-        content.append(_image_part(path))
+        cards_part.append({"type": "input_text", "text": f"[카드 {cid}]"})
+        cards_part.append(_image_part(path))
+    content += cards_part
+    # 단계별 근거: mixed면 사실성·보기 품질은 그룹 요약, 완전성만 요약 문장
+    per_pass = {}
+    if vars_.get("basis") == "summary" and vars_.get("unit") == "mixed":
+        group_text = label + "\n" + "\n".join(f"{i}: {t}" for i, t in enumerate(group_lines, 1))
+        group_content = [{"type": "input_text", "text": group_text}, *cards_part]
+        per_pass = {
+            "visual": (group_content, group_lines),
+            "factuality": (group_content, group_lines),
+        }
 
     fact_ids = [f["id"] for f in facts]
     started = time.perf_counter()
     judgments: list[dict] = []
     tin = tout = 0
     client = OpenAI()
+    # gpt-5·6 계열은 생각을 꺼야 temperature를 쓸 수 있다 (checker.py와 같은 규칙)
+    extra = {"reasoning": {"effort": "none"}} if model.startswith(("gpt-5", "gpt-6")) else {}
     for name, ids in PASSES:
         questions = pass_questions(spec, ids)
         response = client.responses.create(
             model=model,
-            instructions=build_instructions(spec, questions),
-            input=[{"role": "user", "content": content}],
+            **extra,
+            # 꾸밈말 기준은 완전성 판정에만 적용한다
+            instructions=build_instructions(spec, questions)
+            + basis_note
+            + (
+                LENIENT_MODIFIER_NOTE
+                if vars_.get("lenient_modifiers") and name == "completeness"
+                else ""
+            ),
+            input=[{"role": "user", "content": per_pass.get(name, (content, lines))[0]}],
             text={
                 "format": {
                     "type": "json_schema",
@@ -224,7 +322,9 @@ def _vision(options: dict, context: dict) -> dict:
             store=False,
         )
         judgments += to_judgments(
-            json.loads(response.output_text), slots(questions, card_ids, fact_ids), lines
+            json.loads(response.output_text),
+            slots(questions, card_ids, fact_ids),
+            per_pass.get(name, (content, lines))[1],
         )
         if response.usage:
             tin += response.usage.input_tokens

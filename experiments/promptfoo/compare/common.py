@@ -85,3 +85,24 @@ _NOT_WORD = re.compile(r"[\W_]+")
 def normalize(text: str) -> str:
     """인용 확인용: 공백·따옴표·괄호 같은 문장부호 차이는 무시하고 글자만 비교한다."""
     return _NOT_WORD.sub("", str(text))
+
+
+def summary_items(case_dir: Path, record_file: str = "cardsync_record.json", unit: str = "group"):
+    """CardSync 그룹 요약을 채점 항목으로. unit="sentence"면 요약 문장 하나가 항목 하나(G4-2)."""
+    record = json.loads((case_dir / record_file).read_text(encoding="utf-8"))
+    items = []
+    for g in record["groups"]:
+        if not g.get("selected"):
+            continue
+        if unit == "sentence":
+            # 요약은 원문 문장을 지우는 방식이라 문장이 마침표로 끝난다
+            sents = [x for x in re.split(r"(?<=[.!?])\s+", g["summary"].strip()) if x]
+            items += [(f"{g['group_id']}-{i}", t) for i, t in enumerate(sents, 1)]
+        else:
+            items.append((g["group_id"], g["summary"]))
+    return items
+
+
+def tag_file(record_file: str) -> str:
+    """요약 문장 핵심·부가 표시 파일 이름. 기록 파일마다 따로 둔다."""
+    return "summary_tags_" + Path(record_file).stem + ".json"
