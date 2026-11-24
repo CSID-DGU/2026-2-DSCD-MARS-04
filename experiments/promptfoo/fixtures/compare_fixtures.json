@@ -185,7 +185,7 @@
         {
           "question_id": "C-01",
           "card_id": "C1",
-          "verdict": "MET",
+          "verdict": "SUPPORTED",
           "evidence": "",
           "reason": "",
           "spans": []
@@ -193,21 +193,22 @@
         {
           "question_id": "C-01",
           "card_id": "C2",
-          "verdict": "NOT_MET",
+          "verdict": "POSSIBLE_DISTORTION",
           "evidence": "'최대 970만원'",
           "reason": "",
           "spans": [
             {
               "card_id": "C2",
               "card_text": "초소형 보조금 최대 970만원",
-              "source_quote": "초소형 보조금은 최대 870만원이다."
+              "source_quote": "초소형 보조금은 최대 870만원이다.",
+              "status": "POSSIBLE_DISTORTION"
             }
           ]
         },
         {
           "question_id": "C-02",
           "fact_id": "F1",
-          "verdict": "CONVEYED",
+          "verdict": "COVERED",
           "evidence": "",
           "reason": "",
           "spans": [
@@ -216,7 +217,8 @@
               "card_text": "전기차 196대 지원",
               "source_quote": "아산시는 전기차 196대를 지원하며"
             }
-          ]
+          ],
+          "missing_elements": []
         },
         {
           "question_id": "C-02",
@@ -230,6 +232,9 @@
               "card_text": "초소형 보조금 최대 970만원",
               "source_quote": "초소형 보조금은 최대 870만원이다."
             }
+          ],
+          "missing_elements": [
+            "초소형 보조금 상한 870만원"
           ]
         }
       ]
@@ -412,7 +417,7 @@
         {
           "question_id": "C-01",
           "card_id": "C1",
-          "verdict": "MET",
+          "verdict": "SUPPORTED",
           "evidence": "",
           "reason": "",
           "spans": []
@@ -420,24 +425,26 @@
         {
           "question_id": "C-01",
           "card_id": "C2",
-          "verdict": "NOT_MET",
+          "verdict": "POSSIBLE_DISTORTION",
           "evidence": "'최대 970만원'",
           "reason": "",
           "spans": [
             {
               "card_id": "C2",
               "card_text": "초소형 보조금 최대 970만원",
-              "source_quote": "초소형 보조금은 최대 870만원이다."
+              "source_quote": "초소형 보조금은 최대 870만원이다.",
+              "status": "POSSIBLE_DISTORTION"
             }
           ]
         },
         {
           "question_id": "C-02",
           "fact_id": "F1",
-          "verdict": "CONVEYED",
+          "verdict": "COVERED",
           "evidence": "",
           "reason": "",
-          "spans": []
+          "spans": [],
+          "missing_elements": []
         },
         {
           "question_id": "C-02",
@@ -451,6 +458,9 @@
               "card_text": "초소형 보조금 최대 970만원",
               "source_quote": "초소형 보조금은 최대 970만원이다."
             }
+          ],
+          "missing_elements": [
+            "초소형 보조금 상한 870만원"
           ]
         }
       ]

@@ -6,7 +6,7 @@
 
 - 판정자 열은 "AI"로 적는다. C-01·C-02는 AI 후보이며, 사람 판정은 평가표에서 따로 입력한다.
 - 사실성(C-01)과 완전성(C-02)은 합산하지 않는다.
-  하나의 오류가 C-01 미충족과 C-02 왜곡에 같이 잡힐 수 있다.
+  하나의 오류가 C-01 왜곡 의심과 C-02 왜곡에 같이 잡힐 수 있다.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ from collections import Counter
 from pathlib import Path
 
 from experiments.promptfoo.compare.common import load_questions
+
+FACT_PROBLEMS = ("POSSIBLE_DISTORTION", "INSUFFICIENT_EVIDENCE")
 
 HEADER = [
     "기사 No",
@@ -66,12 +68,15 @@ def to_records(results: dict, date: str = "") -> list[list]:
             if spans:
                 evidence += " | " + " / ".join(
                     f"{s.get('card_id', '')}: {s.get('card_text', '')}"
-                    f" ← 원문: {s.get('source_quote', '')}"
+                    + (f" [{labels.get(s['status'], s['status'])}]" if s.get("status") else "")
+                    + f" ← 원문: {s.get('source_quote', '')}"
                     for s in spans
                 )
+            if j.get("missing_elements"):
+                evidence += " | 빠진 요소: " + "; ".join(map(str, j["missing_elements"]))
             # 틀린 문구 수. 한 문구가 원문 여러 줄에 걸치면 span이 여럿이므로 문구 기준으로 센다
             measure = ""
-            if qid == "C-01" and j.get("verdict") == "NOT_MET":
+            if qid == "C-01" and j.get("verdict") in FACT_PROBLEMS:
                 measure = len({(s.get("card_id"), s.get("card_text")) for s in spans})
             records.append(
                 [
@@ -97,12 +102,14 @@ def summarize(records: list[list]) -> dict[str, dict]:
     for svc in sorted({r[1] for r in records}):
         rows = [r for r in records if r[1] == svc]
         fact = [r for r in rows if r[3] == "C-01"]
-        judged = [r for r in fact if r[5] in ("충족", "미충족")]
-        bad = [r for r in judged if r[5] == "미충족"]
+        judged = [r for r in fact if r[5] in ("뒷받침됨", "왜곡 의심", "근거 부족")]
+        bad = [r for r in judged if r[5] != "뒷받침됨"]
         comp = Counter(r[5] for r in rows if r[3] == "C-02")
         n = comp["전달"] + comp["부분 전달"] + comp["누락"] + comp["왜곡"]
         out[svc] = {
             "사실성_틀린문구수": sum(int(r[6] or 0) for r in fact),
+            "사실성_왜곡의심카드": sum(r[5] == "왜곡 의심" for r in judged),
+            "사실성_근거부족카드": sum(r[5] == "근거 부족" for r in judged),
             "사실성_오류카드비율": round(len(bad) / len(judged), 3) if judged else None,
             "완전성_전달": comp["전달"],
             "완전성_부분전달": comp["부분 전달"],
