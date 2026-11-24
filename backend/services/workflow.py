@@ -307,11 +307,13 @@ def _template_cards(doc: dict, groups: list[dict]) -> tuple[dict, dict]:
 GENERATION_RETRIES = 2
 
 
-def _generate(pipeline: Pipeline, document_id: str, groups: list[dict]) -> list[dict]:
+def _generate(
+    pipeline: Pipeline, document_id: str, groups: list[dict], sentences: list[dict]
+) -> list[dict]:
     """모델 출력이 스키마·레이아웃 검증에 걸리면 같은 입력으로 다시 생성한다."""
     for attempt in range(1, GENERATION_RETRIES + 2):
         try:
-            return pipeline.generate(document_id, groups)
+            return pipeline.generate(document_id, groups, sentences)
         except (ValidationError, ValueError) as exc:
             if attempt > GENERATION_RETRIES:
                 raise
@@ -329,7 +331,7 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
         doc = require_document(store, document_id)
         groups = [g for g in doc["groups"] if g["group_id"] in doc["required_group_ids"]]
         stage("cards")
-        generated = _generate(pipeline, document_id, groups)
+        generated = _generate(pipeline, document_id, groups, doc.get("sentences", []))
         # 에이전트가 표지·마무리를 함께 내면 그대로 쓰고, 본문만 오면 서버 임시 문구로 채운다
         body_cards = [c for c in generated if c["layout_id"] not in ("cover", "closing")]
         agent_cover = next((c for c in generated if c["layout_id"] == "cover"), None)
@@ -472,7 +474,9 @@ def check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: lis
         selected = set(doc["required_group_ids"])
         groups = [g for g in doc["groups"] if g["group_id"] in selected]
         stage("check")
-        result = pipeline.check_cards(document_id, groups, [_card_input(c) for c in all_cards])
+        result = pipeline.check_cards(
+            document_id, groups, [_card_input(c) for c in all_cards], doc.get("sentences", [])
+        )
         checked_at = now()
         by_card = result.get("cards", {})
         completeness = result.get("completeness", [])
@@ -533,7 +537,7 @@ def _require_check_permission(store: Store, card: dict) -> None:
 
 def _card_input(card: dict) -> dict:
     keys = ("card_id", "group_id", "layout_id", "sids", "image_query", *LAYOUT_FIELDS)
-    return {k: card.get(k) for k in keys}
+    return {k: card.get(k) for k in keys} | {"sources": card.get("sources") or []}
 
 
 FACT_VERDICT = {
@@ -576,10 +580,13 @@ def _card_check(card, fact, completeness, feedback, result, checked_at) -> dict:
         if f.get("suggested_text"):
             suggested[f["field_path"]] = f["suggested_text"]
     cid = card["card_id"]
+    # 완전성 판정에는 group_id 칸이 없다. fact_id가 "G4:summary"처럼 그룹 ID로 시작한다.
+    # 누락(MISSING)은 연결 카드가 비어 있으므로 그룹으로 붙이지 않으면 어느 카드에도 안 보인다.
     cover = [
         c
         for c in completeness
-        if cid in c.get("matched_card_ids", []) or c.get("group_id") == card.get("group_id")
+        if cid in c.get("matched_card_ids", [])
+        or c["fact_id"].split(":", 1)[0] == card.get("group_id")
     ]
     cover_issues = [
         {

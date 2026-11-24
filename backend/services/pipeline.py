@@ -22,9 +22,13 @@ class Pipeline(Protocol):
 
     def titles(self, document_id: str, groups: list[dict]) -> list[dict]: ...
 
-    def generate(self, document_id: str, groups: list[dict]) -> list[dict]: ...
+    def generate(
+        self, document_id: str, groups: list[dict], sentences: list[dict]
+    ) -> list[dict]: ...
 
-    def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
+    def check_cards(
+        self, document_id: str, groups: list[dict], cards: list[dict], sentences: list[dict]
+    ) -> dict:
         """카드 단계: 그룹 요약 ↔ 카드 문구 (수연 사실성 + 완전성 + 피드백 통합).
 
         반환: {"status", "model", "cards": {card_id: {...}}, "feedback": [...], "unchecked": [...]}
@@ -58,10 +62,10 @@ class RepoPipeline:
         )
         return [g.model_dump() for g in merge_group_results(analysis, presentation)]
 
-    def generate(self, document_id: str, groups: list[dict]) -> list[dict]:
+    def generate(self, document_id: str, groups: list[dict], sentences: list[dict]) -> list[dict]:
         from ai.generation.card_generator import generate_cards
         from ai.generation.layout_selector import select_layouts
-        from data_pipeline.schemas.group import Group
+        from data_pipeline.schemas.group import Group, Sentence
 
         models = [Group.model_validate(g) for g in groups]
         layouts = select_layouts(document_id, models, client=self.client)
@@ -72,6 +76,7 @@ class RepoPipeline:
             layouts.layout_selections,
             client=self.client,
             include_boundary_cards=True,
+            sentences=[Sentence.model_validate(x) for x in sentences],
             strict=False,  # 글자 수가 끝내 안 줄면 넘친 채로 배치한다. 편집 화면이 넘침을 표시한다
         )
         return [c.model_dump() for c in result.cards]
@@ -81,20 +86,23 @@ class RepoPipeline:
 
         return search_photo(query, exclude=exclude)
 
-    def check_cards(self, document_id: str, groups: list[dict], cards: list[dict]) -> dict:
+    def check_cards(
+        self, document_id: str, groups: list[dict], cards: list[dict], sentences: list[dict]
+    ) -> dict:
         from dataclasses import asdict
 
         from ai.verification.completeness.llm.llm_checker import check_llm_completeness
         from ai.verification.factuality.llm.llm_checker import check_llm_factuality
         from ai.verification.feedback.merger import merge_feedback
         from data_pipeline.schemas.card import Card, FinalCardOutput
-        from data_pipeline.schemas.group import Group
+        from data_pipeline.schemas.group import Group, Sentence
 
         models = [Group.model_validate(g) for g in groups]
+        texts = [Sentence.model_validate(x) for x in sentences]
         final = FinalCardOutput(
             document_id=document_id, cards=[Card.model_validate(c) for c in cards]
         )
-        factuality = check_llm_factuality(models, final, client=self.client)
+        factuality = check_llm_factuality(models, final, client=self.client, sentences=texts)
         completeness = check_llm_completeness(models, final, client=self.client)
         feedback = merge_feedback(factuality, completeness, client=self.client)
         return {

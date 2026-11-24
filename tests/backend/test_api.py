@@ -49,7 +49,7 @@ class FakePipeline:
     def titles(self, document_id, groups):
         return [{**g, "topic": f"주제 {g['group_id']}", "headline": "미리보기"} for g in groups]
 
-    def generate(self, document_id, groups):
+    def generate(self, document_id, groups, sentences):
         self.generate_calls += 1
         if self.generate_calls <= self.fail_generate:
             CardGeneration.model_validate({"layout_id": "body"})  # pydantic ValidationError
@@ -78,7 +78,7 @@ class FakePipeline:
             "author": "A",
         }
 
-    def check_cards(self, document_id, groups, cards):
+    def check_cards(self, document_id, groups, cards, sentences):
         """수연 검사기 모양: 카드별 필드 판정 + 완전성 + 피드백. 999가 있으면 왜곡, 수정안 제시."""
         self.card_inputs = (groups, cards)
         by_card = {}
@@ -111,7 +111,6 @@ class FakePipeline:
             "completeness": [
                 {
                     "fact_id": f"{g['group_id']}:summary",
-                    "group_id": g["group_id"],
                     "status": "COVERED",
                     "matched_card_ids": [
                         c["card_id"] for c in cards if c["group_id"] == g["group_id"]
@@ -281,8 +280,8 @@ def test_cards_generated_with_cover_and_closing(make_client):
 class BoundaryPipeline(FakePipeline):
     """에이전트가 표지·마무리까지 돌려주는 경우(dev 17e1367 include_boundary_cards=True)."""
 
-    def generate(self, document_id, groups):
-        body = super().generate(document_id, groups)
+    def generate(self, document_id, groups, sentences):
+        body = super().generate(document_id, groups, sentences)
         cover = {
             "group_id": None,
             "layout_id": "cover",
@@ -458,7 +457,7 @@ def test_repo_check_cards_wiring_with_fake_openai():
                             "status": "POSSIBLE_DISTORTION"
                             if "999" in f["card_text"]
                             else "SUPPORTED",
-                            "evidence": "월 10만 원",
+                            "evidence_sids": ["S1"],
                             "reason": "금액이 다릅니다." if "999" in f["card_text"] else "",
                             "error_type": "수치 변경" if "999" in f["card_text"] else None,
                             "suggested_text": "월 10만 원을 저축합니다."
@@ -530,12 +529,13 @@ def test_repo_check_cards_wiring_with_fake_openai():
         },
     ]
     result = RepoPipeline(client=SimpleNamespace(responses=FakeResponses())).check_cards(
-        "doc", groups, cards
+        "doc", groups, cards, [{"sentence_id": "S1", "text": "월 10만 원을 저축한다."}]
     )
     assert result["cards"]["C1"]["status"] == "NOT_CHECKED"
     assert result["cards"]["C2"]["status"] == "POSSIBLE_DISTORTION"
     body = next(f for f in result["cards"]["C2"]["fields"] if f["field_path"] == "body")
     assert body["suggested_text"] == "월 10만 원을 저축합니다."
+    assert body["evidence"] == "월 10만 원을 저축한다."  # 문장 ID로 고른 근거를 원문으로 채움
     assert result["completeness"][0]["fact_id"] == "G1:summary"
     assert result["feedback"][0]["card_ids"] == ["C2"] and result["status"] == "ISSUES_FOUND"
 
@@ -617,3 +617,22 @@ def test_unsplash_search_shapes_card_image(monkeypatch):
     assert (
         unsplash.search_photo("piggy bank", key="k", exclude={"abc"}) is None
     )  # 이미 쓴 사진만 있으면 없음
+
+
+def test_missing_completeness_attaches_to_group_cards():
+    """누락 판정은 연결 카드가 비어 있다. 완전성 결과에 group_id가 없어 fact_id로 그룹을 찾는다."""
+    from backend.services.workflow import _card_check
+
+    missing = {
+        "fact_id": "G4:summary",
+        "status": "MISSING",
+        "matched_card_ids": [],
+        "reason": "신청 방법이 없습니다.",
+        "missing_elements": ["센터에 신청"],
+    }
+    other = {**missing, "fact_id": "G5:summary"}
+    card = {"card_id": "C5", "group_id": "G4", "version": 1, "title": "t", "body": "b"}
+    check = _card_check(card, None, [missing, other], [], {"model": "m"}, "now")
+    assert [c["fact_id"] for c in check["completeness"]] == ["G4:summary"]
+    assert check["completeness"][0]["type"] == "필수 정보 누락"
+    assert check["verdict"] == "warn"
