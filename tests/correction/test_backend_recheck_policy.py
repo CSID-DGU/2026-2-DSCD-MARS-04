@@ -10,7 +10,7 @@ class CheckPipeline:
     def __init__(self, *, fail=False):
         self.fail = fail
 
-    def check_cards(self, document_id, groups, cards):
+    def check_cards(self, document_id, groups, cards, sentences):
         if self.fail:
             raise RuntimeError("check failed")
         return {
