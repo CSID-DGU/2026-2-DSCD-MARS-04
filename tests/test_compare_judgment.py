@@ -15,7 +15,12 @@ from experiments.promptfoo.compare.common import (
     load_facts,
     load_questions,
 )
-from experiments.promptfoo.providers.compare_judge import build_instructions, call_api
+from experiments.promptfoo.providers.compare_judge import (
+    build_instructions,
+    call_api,
+    output_schema,
+    pass_questions,
+)
 from experiments.promptfoo.scripts.export_compare import summarize, to_records
 
 FIXTURE = Path("experiments/promptfoo/fixtures/compare_fixtures.json")
@@ -64,7 +69,7 @@ def test_broken_fixture_reports_each_problem():
     problems = check_judgments(_fixture("smoke_compare_broken"), CARDS, FACTS, SOURCE)
     text = " ".join(problems)
     assert "허용값 아님 GOOD" in text
-    assert "CONVEYED인데 spans 없음" in text
+    assert "COVERED인데 spans 없음" in text
     assert "원문에 없는 인용" in text
     assert "V-01/C2" in text
 
@@ -82,10 +87,11 @@ def test_partially_conveyed_fact_needs_evidence_and_spans():
     judgments = _fixture("smoke_compare_valid")
     for j in judgments:
         if j.get("fact_id") == "F2":
-            j.update(verdict="PARTIALLY_CONVEYED", evidence="", spans=[])
+            j.update(verdict="PARTIALLY_COVERED", evidence="", spans=[], missing_elements=[])
     problems = " ".join(check_judgments(judgments, CARDS, FACTS, SOURCE))
-    assert "PARTIALLY_CONVEYED인데 evidence 없음" in problems
-    assert "PARTIALLY_CONVEYED인데 spans 없음" in problems
+    assert "PARTIALLY_COVERED인데 evidence 없음" in problems
+    assert "PARTIALLY_COVERED인데 spans 없음" in problems
+    assert "PARTIALLY_COVERED인데 missing_elements 없음" in problems
 
 
 def test_quote_check_ignores_whitespace_only():
@@ -105,12 +111,12 @@ def test_string_spans_are_reported_not_crashed():
 
 def test_agreement_counts_only_human_judged_items():
     ai = [
-        {"question_id": "C-01", "card_id": "C2", "verdict": "NOT_MET"},
+        {"question_id": "C-01", "card_id": "C2", "verdict": "POSSIBLE_DISTORTION"},
         {"question_id": "S-02", "verdict": "MET"},
         {"question_id": "V-01", "card_id": "C1", "verdict": "MET"},
     ]
     human = [
-        {"question_id": "C-01", "card_id": "C2", "verdict": "NOT_MET"},
+        {"question_id": "C-01", "card_id": "C2", "verdict": "POSSIBLE_DISTORTION"},
         {"question_id": "S-02", "verdict": "NOT_MET"},
     ]
     same, total, diff = agreement(ai, human)
@@ -144,7 +150,7 @@ def test_passes_split_questions_and_lock_ids():
     )
     schema = output_schema(spec, pass_questions(spec, {"C-01"}), CARDS, FACTS)
     assert schema["required"] == ["C-01|C1", "C-01|C2"]
-    assert "CONVEYED" not in schema["properties"]["C-01|C1"]["properties"]["verdict"]["enum"]
+    assert "COVERED" not in schema["properties"]["C-01|C1"]["properties"]["verdict"]["enum"]
 
 
 def test_keyed_answer_becomes_judgment_list():
@@ -197,7 +203,7 @@ def test_export_keeps_factuality_and_completeness_separate():
     }
     records = to_records(results)
     assert all(r[2] == "AI" for r in records)
-    c01 = [r for r in records if r[3] == "C-01" and r[5] == "미충족"]
+    c01 = [r for r in records if r[3] == "C-01" and r[5] == "왜곡 의심"]
     assert c01 and c01[0][6] == 1 and "870만원" in c01[0][7]
     summary = summarize(records)["CardSync"]
     assert summary["사실성_틀린문구수"] == 1
@@ -206,11 +212,17 @@ def test_export_keeps_factuality_and_completeness_separate():
 
 
 def test_export_counts_wrong_phrases_not_spans():
-    span = {"card_id": "C2", "card_text": "월 20만 원", "source_line": 1, "source_quote": "원문 1"}
+    span = {
+        "card_id": "C2",
+        "card_text": "월 20만 원",
+        "source_line": 1,
+        "source_quote": "원문 1",
+        "status": "POSSIBLE_DISTORTION",
+    }
     judgment = {
         "question_id": "C-01",
         "card_id": "C2",
-        "verdict": "NOT_MET",
+        "verdict": "POSSIBLE_DISTORTION",
         "evidence": "x",
         "spans": [span, {**span, "source_line": 2, "source_quote": "원문 2"}],
     }
@@ -279,7 +291,7 @@ def test_source_line_becomes_exact_quote():
     span = {"card_id": "C1", "card_text": "최대 870만원", "source_line": 1}
     bad = {"card_id": "C1", "card_text": "x", "source_line": 9}
     out = to_judgments(
-        {"C-02|F1": {"verdict": "CONVEYED", "evidence": "C1", "reason": "", "spans": [span, bad]}},
+        {"C-02|F1": {"verdict": "COVERED", "evidence": "C1", "reason": "", "spans": [span, bad]}},
         table,
         [SOURCE],
     )
@@ -288,3 +300,40 @@ def test_source_line_becomes_exact_quote():
     assert check_judgments(out, CARDS, ["F1"], SOURCE) and "원문에 없는 인용" in " ".join(
         check_judgments(out, CARDS, ["F1"], SOURCE)
     )
+
+
+def test_factuality_uses_card_checker_statuses():
+    spec = load_questions()
+    schema = output_schema(spec, pass_questions(spec, {"C-01"}), CARDS, FACTS)
+    judgment = schema["properties"]["C-01|C1"]["properties"]
+    assert judgment["verdict"]["enum"] == [
+        "SUPPORTED",
+        "POSSIBLE_DISTORTION",
+        "INSUFFICIENT_EVIDENCE",
+        "UNCERTAIN",
+        "NON_ASSERTIVE",
+    ]
+    assert judgment["spans"]["items"]["properties"]["status"]["enum"] == [
+        "POSSIBLE_DISTORTION",
+        "INSUFFICIENT_EVIDENCE",
+    ]
+    judgments = _fixture("smoke_compare_valid")
+    for j in judgments:
+        if j["question_id"] == "C-01" and j["card_id"] == "C2":
+            j.update(verdict="INSUFFICIENT_EVIDENCE", spans=[])
+    problems = check_judgments(judgments, CARDS, FACTS, SOURCE)
+    assert any("INSUFFICIENT_EVIDENCE인데 spans 없음" in p for p in problems)
+
+
+def test_completeness_output_matches_card_checker():
+    spec = load_questions()
+    schema = output_schema(spec, pass_questions(spec, {"C-02"}), CARDS, FACTS)
+    judgment = schema["properties"]["C-02|F1"]
+    assert "missing_elements" in judgment["required"]
+    assert judgment["properties"]["verdict"]["enum"][:2] == ["COVERED", "PARTIALLY_COVERED"]
+    judgments = _fixture("smoke_compare_valid")
+    for j in judgments:
+        if j["question_id"] == "C-02" and j["verdict"] == "COVERED":
+            j["missing_elements"] = ["있어선 안 됨"]
+    problems = check_judgments(judgments, CARDS, FACTS, SOURCE)
+    assert any("COVERED인데 missing_elements 있음" in p for p in problems)
