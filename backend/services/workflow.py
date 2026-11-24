@@ -7,6 +7,17 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from ai.correction.policy import (
+    AI_RECHECK_LIMIT_REACHED,
+    AI_REPAIR,
+    CARD_NOT_EDITED,
+    MANUAL,
+    MANUAL_FINAL_CHECK_USED,
+    can_apply_ai_repair,
+    check_permission,
+    classify_check,
+    record_successful_check,
+)
 from backend.core import llm_usage
 from backend.core.logging import current_request_id, log
 from backend.core.responses import ApiError
@@ -35,6 +46,9 @@ def card_view(store: Store, card: dict) -> dict:
     else:
         status, valid = check["verdict"], check
     view = {k: v for k, v in card.items() if k != "db_id"}
+    view.setdefault("ai_recheck_count", 0)
+    view.setdefault("manual_final_check_used", False)
+    view.setdefault("pending_edit_source", None)
     view.update(status=status, check=valid)
     return view
 
@@ -339,6 +353,9 @@ def generation_work(store: Store, pipeline: Pipeline, document_id: str):
                     "order": order,
                     "version": 1,
                     "generated_by": by,
+                    "ai_recheck_count": 0,
+                    "manual_final_check_used": False,
+                    "pending_edit_source": None,
                     "image": _photo(pipeline, fields["image_query"], used),
                 }
             )
@@ -377,6 +394,11 @@ def update_card(store: Store, document_id: str, card_id: str, body: dict, layout
         raise ApiError(400, "expected_version이 필요합니다.")
     if expected != card["version"]:
         raise ApiError(409, "다른 곳에서 먼저 수정했습니다. 새로 고친 뒤 다시 시도하세요.")
+    edit_source = body.get("edit_source", MANUAL)
+    if edit_source not in (AI_REPAIR, MANUAL):
+        raise ApiError(400, "edit_source는 'ai_repair' 또는 'manual'이어야 합니다.")
+    if edit_source == AI_REPAIR and not can_apply_ai_repair(card.get("ai_recheck_count", 0)):
+        raise ApiError(409, "AI 수정안 적용 후 재검사는 최대 2회까지 가능합니다.")
     locked = {"layout_id", "sids", "group_id", "card_id"} & set(body)
     if locked:
         raise ApiError(400, f"바꿀 수 없는 필드입니다: {sorted(locked)}")
@@ -397,7 +419,13 @@ def update_card(store: Store, document_id: str, card_id: str, body: dict, layout
         view["over_limit"] = over_limit(card, layouts)
         return view
     card.update({k: fields[k] for k in LAYOUT_FIELDS})
-    card.update(version=card["version"] + 1, generated_by="user")
+    card.update(
+        version=card["version"] + 1,
+        generated_by="user",
+        ai_recheck_count=card.get("ai_recheck_count", 0),
+        manual_final_check_used=card.get("manual_final_check_used", False),
+        pending_edit_source=edit_source,
+    )
     store.save_card(card)
     view = card_view(store, card)
     view["over_limit"] = over_limit(card, layouts)
@@ -423,6 +451,8 @@ def start_check(
     targets = [c for c in targets if c["sids"]]
     if not targets:
         raise ApiError(409, "검사할 카드가 없습니다.")
+    for card in targets:
+        _require_check_permission(store, card)
     return start_job(store, "check", document_id), [c["card_id"] for c in targets]
 
 
@@ -436,6 +466,9 @@ def check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: lis
         doc = require_document(store, document_id)
         all_cards = store.list_cards(document_id)
         versions = {c["card_id"]: c["version"] for c in all_cards}
+        check_kinds = {
+            c["card_id"]: _check_kind(store, c) for c in all_cards if c["card_id"] in card_ids
+        }
         selected = set(doc["required_group_ids"])
         groups = [g for g in doc["groups"] if g["group_id"] in selected]
         stage("check")
@@ -452,8 +485,50 @@ def check_work(store: Store, pipeline: Pipeline, document_id: str, card_ids: lis
                 card["db_id"],
                 _card_check(card, by_card.get(cid), completeness, feedback, result, checked_at),
             )
+            ai_count, manual_used = record_successful_check(
+                check_kind=check_kinds[cid],
+                ai_recheck_count=card.get("ai_recheck_count", 0),
+                manual_final_check_used=card.get("manual_final_check_used", False),
+            )
+            card.update(
+                ai_recheck_count=ai_count,
+                manual_final_check_used=manual_used,
+                pending_edit_source=None,
+            )
+            store.save_card(card)
 
     return work
+
+
+def _has_card_check(store: Store, card: dict) -> bool:
+    check = store.latest_check(card["db_id"])
+    return bool(check and str(check.get("checker", "")).startswith(CARD_CHECKER_NAME))
+
+
+def _check_kind(store: Store, card: dict):
+    try:
+        return classify_check(
+            has_previous_check=_has_card_check(store, card),
+            pending_edit_source=card.get("pending_edit_source"),
+        )
+    except ValueError as exc:
+        raise ApiError(409, str(exc)) from None
+
+
+def _require_check_permission(store: Store, card: dict) -> None:
+    permission = check_permission(
+        check_kind=_check_kind(store, card),
+        ai_recheck_count=card.get("ai_recheck_count", 0),
+        manual_final_check_used=card.get("manual_final_check_used", False),
+    )
+    if permission.allowed:
+        return
+    messages = {
+        AI_RECHECK_LIMIT_REACHED: "AI 수정안 적용 후 재검사는 최대 2회까지 가능합니다.",
+        MANUAL_FINAL_CHECK_USED: "사용자 직접 수정 후 최종 검사는 1회만 가능합니다.",
+        CARD_NOT_EDITED: "검사 이후 수정되지 않은 카드입니다.",
+    }
+    raise ApiError(409, messages.get(permission.reason, "재검사할 수 없는 카드입니다."))
 
 
 def _card_input(card: dict) -> dict:
