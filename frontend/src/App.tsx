@@ -18,7 +18,6 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.toggle('on-landing', landing)
-    document.title = landing ? 'CardSync — 짧아진 문장에도 근거는 남도록' : 'CardSync — 제작 작업대'
     window.scrollTo(0, 0)
   }, [landing])
 
@@ -55,7 +54,7 @@ export default function App() {
           <img src="/logo.svg" alt="" />
           CardSync
         </a>
-        {wf.mode ? <span className="small muted">{wf.mode === 'mock' ? '샘플 데이터' : '백엔드 연결'}</span> : null}
+        {wf.mode === 'mock' ? <span className="small muted">샘플 데이터</span> : null}
       </header>
       <Landing onStart={() => setLanding(false)} />
       <nav className="steps" id="steps" aria-label="제작 단계">
