@@ -63,3 +63,5 @@ mark.chg{background:none;color:#b3261e;text-decoration:underline wavy #d0453a;te
 .load-bar{height:4px;background:#e5eaf1;max-width:380px;margin:24px auto 10px;border-radius:2px;overflow:hidden}
 .load-bar i{display:block;height:100%;background:#0866d9;border-radius:2px;transition:width 200ms linear}
 .load-time{font-size:12px;color:var(--muted);margin:0}
+.gsi-btn{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:1px solid #dadce0;border-radius:20px;background:#fff;color:#1f1f1f;font:500 14px/20px Roboto,'Apple SD Gothic Neo',sans-serif;cursor:pointer;white-space:nowrap}.gsi-btn svg{width:20px;height:20px;flex:none}.gsi-btn:hover{background:#f8f9fa}.gsi-btn:focus-visible{outline:2px solid #0b57d0;outline-offset:2px}
+@media(max-width:600px){.gsi-btn{width:40px;padding:0;justify-content:center}.gsi-btn span{display:none}}
