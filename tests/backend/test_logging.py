@@ -7,15 +7,15 @@ import pytest
 from fastapi.testclient import TestClient
 from test_api import TEXT, FakePipeline
 
+from backend.core.auth import current_user
 from backend.core.logging import JsonFormatter, logger
-from backend.core.store import Store
 from backend.main import BASE, create_app
 
 SECRET_LIKE = "sk-test-should-never-appear"
 
 
 @pytest.fixture
-def client_and_logs(monkeypatch):
+def client_and_logs(monkeypatch, store):
     monkeypatch.setenv("OPENAI_API_KEY", SECRET_LIKE)
     records = []
 
@@ -25,7 +25,9 @@ def client_and_logs(monkeypatch):
 
     handler = Capture()
     logger.addHandler(handler)
-    client = TestClient(create_app(store=Store(":memory:"), pipeline=FakePipeline()))
+    app = create_app(store=store, pipeline=FakePipeline())
+    app.dependency_overrides[current_user] = lambda: "user-1"
+    client = TestClient(app)
     yield client, records
     logger.removeHandler(handler)
 

@@ -175,7 +175,7 @@ def run_job(store: Store, job: dict, work) -> None:
 # ---------------- 문서 ----------------
 
 
-def create_document(store: Store, body: dict) -> tuple[dict, dict]:
+def create_document(store: Store, body: dict, user_id: str) -> tuple[dict, dict]:
     text = (body.get("text") or "").strip()
     if not text:
         raise ApiError(400, "원문이 비어 있습니다.")
@@ -184,6 +184,7 @@ def create_document(store: Store, body: dict) -> tuple[dict, dict]:
     source = {k: body.get(k) for k in ("title", "source_url", "source_name", "license")}
     doc = {
         "document_id": new_id("doc"),
+        "user_id": user_id,
         "text": text,
         "source": source,
         "status": "analyzing",

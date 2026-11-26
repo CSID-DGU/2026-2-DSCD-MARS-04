@@ -12,7 +12,6 @@ COPY ai ai
 COPY data_pipeline data_pipeline
 COPY data/layouts.json data/layouts.json
 
-ENV CARDSYNC_DB_PATH=/data/cardsync.db
 EXPOSE 8000
-# 작업을 프로세스 안에서 돌리고 SQLite에 저장하므로 워커는 1개만 둔다
+# 작업을 프로세스 안에서 돌리고 시작할 때 남은 작업을 실패로 바꾸므로 워커는 1개만 둔다
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
