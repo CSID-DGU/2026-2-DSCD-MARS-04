@@ -1,0 +1,4 @@
+[
+  {"case_id": "smoke_visual_valid", "provider": "visual_judge_fixture", "metric": "valid_visual_judgment", "pass": true},
+  {"case_id": "smoke_visual_broken", "provider": "visual_judge_fixture", "metric": "valid_visual_judgment", "pass": false}
+]

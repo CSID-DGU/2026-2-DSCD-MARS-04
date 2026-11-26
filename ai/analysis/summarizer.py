@@ -1,0 +1,246 @@
+import argparse
+import json
+import os
+import time
+from pathlib import Path
+
+from dotenv import load_dotenv
+from openai import OpenAI
+from pydantic import BaseModel
+
+from ai.analysis.grouper import ROOT, TEMPERATURE, group_sentences
+from ai.verification.consistency.checker import check_consistency
+from ai.verification.consistency.numbers import find_missing_numbers, number_context
+from data_pipeline.extraction.llm.data_loader import load_articles
+from data_pipeline.extraction.llm.sentence_splitter import split_sentences
+
+PROMPT_PATH = Path(__file__).with_name("prompts") / "summary.md"
+SUMMARY_MODEL = "gpt-6-luna"
+
+
+class GroupSummary(BaseModel):
+    group_id: str
+    summary: str
+
+
+class SummaryResult(BaseModel):
+    summaries: list[GroupSummary]
+
+
+def build_summary_input(
+    sentences: list[dict], groups: list[dict], previous_errors: dict[str, str] | None = None
+) -> str:
+    by_id = {sentence["sentence_id"]: sentence for sentence in sentences}
+    position = {sentence["sentence_id"]: index for index, sentence in enumerate(sentences)}
+
+    items = []
+    for group in groups:
+        first = position[group["sentence_ids"][0]]
+        item = {
+            "group_id": group["group_id"],
+            "sentences": [by_id[i] for i in group["sentence_ids"]],
+            "previous_sentence": sentences[first - 1]["text"] if first > 0 else None,
+        }
+        if previous_errors and group["group_id"] in previous_errors:
+            item["previous_error"] = previous_errors[group["group_id"]]
+        items.append(item)
+    return json.dumps({"groups": items}, ensure_ascii=False)
+
+
+def call_summary(
+    sentences: list[dict],
+    groups: list[dict],
+    *,
+    previous_errors: dict[str, str] | None = None,
+    model: str | None = None,
+    client: OpenAI | None = None,
+) -> dict:
+    load_dotenv(ROOT / ".env")
+    model = model or os.getenv("SUMMARY_MODEL", SUMMARY_MODEL)
+    client = client or OpenAI()
+
+    prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
+    user_input = build_summary_input(sentences, groups, previous_errors)
+    # gpt-5·6 계열은 생각을 꺼야 temperature를 쓸 수 있음
+    extra = {"reasoning": {"effort": "none"}} if model.startswith(("gpt-5", "gpt-6")) else {}
+
+    started = time.perf_counter()
+    response = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_input},
+        ],
+        text_format=SummaryResult,
+        temperature=TEMPERATURE,
+        **extra,
+    )
+    latency = time.perf_counter() - started
+
+    if response.output_parsed is None:
+        raise RuntimeError("스키마에 맞는 요약 결과가 없습니다.")
+
+    return {
+        "summaries": [item.model_dump() for item in response.output_parsed.summaries],
+        "model": model,
+        "response_model": getattr(response, "model", None),
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+        "latency_seconds": round(latency, 2),
+    }
+
+
+def check_summaries(sentences: list[dict], groups: list[dict], summaries: dict) -> dict:
+    """그룹마다 문제를 찾는다. 문제가 없는 그룹은 결과에 없다."""
+    text = {s["sentence_id"]: s["text"] for s in sentences}
+    errors = {}
+    for group in groups:
+        summary = summaries.get(group["group_id"], "").strip()
+        if not summary:
+            errors[group["group_id"]] = "요약이 비어 있습니다."
+            continue
+        source = " ".join(text[i] for i in group["sentence_ids"])
+        missing = find_missing_numbers(source, summary)
+        if missing:
+            where = ", ".join(f"'{number_context(n, source)}'의 {n}" for n in missing)
+            errors[group["group_id"]] = (
+                f"원문의 숫자가 빠졌습니다: {where}. 이 숫자를 요약에 남기세요."
+            )
+    return errors
+
+
+def check_facts(
+    sentences: list[dict], groups: list[dict], summaries: dict, *, client: OpenAI | None = None
+) -> tuple[dict, dict | None]:
+    """요약이 그룹 원문과 맞는지 본다.
+
+    요약은 가리키는 말을 바로 앞 문장의 표현으로 바꿀 수 있어서, 앞 문장도 원문에 같이 넣는다.
+    """
+    if not groups:
+        return {}, None
+    text = {s["sentence_id"]: s["text"] for s in sentences}
+    position = {s["sentence_id"]: n for n, s in enumerate(sentences)}
+    items = []
+    for group in groups:
+        first = position[group["sentence_ids"][0]]
+        before = [sentences[first - 1]["text"]] if first > 0 else []
+        source = " ".join(before + [text[i] for i in group["sentence_ids"]])
+        items.append(
+            {"item_id": group["group_id"], "source": source, "text": summaries[group["group_id"]]}
+        )
+
+    checked = check_consistency(items, by_sentence=True, client=client)
+    errors = {}
+    for result in checked["results"]:
+        if result["status"] == "FAIL":
+            where = " ".join(f"'{p['quote']}': {p['reason']}" for p in result["problems"])
+            errors[result["item_id"]] = (
+                f"원문과 맞지 않는 부분이 있습니다. {where} 원문 문장의 표현을 그대로 남기세요."
+            )
+    return errors, checked["call"]
+
+
+def find_errors(
+    sentences: list[dict], groups: list[dict], summaries: dict, *, client: OpenAI | None = None
+) -> tuple[dict, dict | None]:
+    """규칙 검사(빈 요약, 숫자 누락)를 먼저 하고, 통과한 그룹만 사실성을 본다."""
+    errors = check_summaries(sentences, groups, summaries)
+    passed = [g for g in groups if g["group_id"] not in errors]
+    fact_errors, fact_call = check_facts(sentences, passed, summaries, client=client)
+    errors |= fact_errors
+    ordered = {g["group_id"]: errors[g["group_id"]] for g in groups if g["group_id"] in errors}
+    return ordered, fact_call
+
+
+def summarize_groups(
+    sentences: list[dict],
+    groups: list[dict],
+    *,
+    model: str | None = None,
+    client: OpenAI | None = None,
+    max_retries: int = 1,
+) -> dict:
+    """요약하고 검사한다(규칙 → 사실성).
+
+    걸린 그룹만 다시 요청하고, 그래도 안 되면 원문 문장으로 대체한다.
+    """
+    text = {s["sentence_id"]: s["text"] for s in sentences}
+    first = call_summary(sentences, groups, model=model, client=client)
+    summaries = {item["group_id"]: item["summary"] for item in first["summaries"]}
+    errors, fact_call = find_errors(sentences, groups, summaries, client=client)
+    group_ids = [g["group_id"] for g in groups]
+    calls = [
+        {"attempt": 1, "group_ids": group_ids, **first, "errors": errors, "consistency": fact_call}
+    ]
+    retried = list(errors)
+
+    for attempt in range(2, max_retries + 2):
+        if not errors:
+            break
+        failed = [g for g in groups if g["group_id"] in errors]
+        result = call_summary(sentences, failed, previous_errors=errors, model=model, client=client)
+        for item in result["summaries"]:
+            if item["group_id"] in errors:
+                summaries[item["group_id"]] = item["summary"]
+        errors, fact_call = find_errors(sentences, failed, summaries, client=client)
+        calls.append(
+            {
+                "attempt": attempt,
+                "group_ids": [g["group_id"] for g in failed],
+                **result,
+                "errors": errors,
+                "consistency": fact_call,
+            }
+        )
+
+    for group_id in errors:
+        group = next(g for g in groups if g["group_id"] == group_id)
+        summaries[group_id] = " ".join(text[i] for i in group["sentence_ids"])
+
+    return {
+        "groups": [{**group, "summary": summaries[group["group_id"]]} for group in groups],
+        "retried_group_ids": retried,
+        "fallback_group_ids": list(errors),
+        "fallback_reasons": errors,
+        "attempts": len(calls),
+        "model": calls[-1]["model"],
+        "response_model": calls[-1]["response_model"],
+        "max_retries": max_retries,
+        "temperature": TEMPERATURE,
+        "input_tokens": sum(c["input_tokens"] for c in calls),
+        "output_tokens": sum(c["output_tokens"] for c in calls),
+        "latency_seconds": round(sum(c["latency_seconds"] for c in calls), 2),
+        "calls": calls,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="기사 하나를 그룹화하고 요약해 본다")
+    parser.add_argument("--file", default="data/samples/original_text.xlsx")
+    parser.add_argument("--index", type=int, default=0, help="몇 번째 기사 (0부터)")
+    args = parser.parse_args()
+
+    article = load_articles(args.file, limit=args.index + 1)[args.index]
+    sentences = split_sentences(article["source_text"])
+    grouping = group_sentences(sentences)
+    if not grouping["valid"]:
+        print("그룹화 실패:", grouping["errors"])
+        return
+
+    result = summarize_groups(sentences, grouping["groups"])
+    text = {s["sentence_id"]: s["text"] for s in sentences}
+
+    for group in result["groups"]:
+        mark = " (원문으로 대체)" if group["group_id"] in result["fallback_group_ids"] else ""
+        print(f"\n[{group['group_id']}] {', '.join(group['sentence_ids'])}{mark}")
+        for sentence_id in group["sentence_ids"]:
+            print(f"  원문 {sentence_id}: {text[sentence_id]}")
+        print(f"  요약: {group['summary']}")
+
+    keys = ("retried_group_ids", "fallback_reasons", "attempts", "model")
+    keys += ("input_tokens", "output_tokens", "latency_seconds")
+    print("\n", json.dumps({k: result[k] for k in keys}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,9 @@
+{
+  "document_id": "news_014",
+  "required_group_ids": [
+    "G1",
+    "G2",
+    "G3",
+    "G4"
+  ]
+}

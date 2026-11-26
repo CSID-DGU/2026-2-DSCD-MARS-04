@@ -1,0 +1,10 @@
+[
+  {"case_id": "smoke_ev_subsidy", "provider": "cardsync_fixture", "metric": "no_new_numbers", "pass": true},
+  {"case_id": "smoke_ev_subsidy", "provider": "cardsync_fixture", "metric": "keeps_source_numbers", "pass": true},
+  {"case_id": "smoke_ev_subsidy", "provider": "direct_gpt_fixture", "metric": "no_new_numbers", "pass": true},
+  {"case_id": "smoke_ev_subsidy", "provider": "direct_gpt_fixture", "metric": "keeps_source_numbers", "pass": false},
+  {"case_id": "smoke_number_changed", "provider": "cardsync_fixture", "metric": "no_new_numbers", "pass": false},
+  {"case_id": "smoke_number_changed", "provider": "cardsync_fixture", "metric": "keeps_source_numbers", "pass": false},
+  {"case_id": "smoke_number_changed", "provider": "direct_gpt_fixture", "metric": "no_new_numbers", "pass": true},
+  {"case_id": "smoke_number_changed", "provider": "direct_gpt_fixture", "metric": "keeps_source_numbers", "pass": true}
+]

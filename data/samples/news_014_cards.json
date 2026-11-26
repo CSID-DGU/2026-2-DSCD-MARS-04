@@ -1,0 +1,107 @@
+{
+  "document_id": "news_014",
+  "cards": [
+    {
+      "group_id": null,
+      "layout_id": "cover",
+      "sids": [],
+      "title": "아산시, 올해 전기차 196대 보조금 지원",
+      "image_query": "electric cars city",
+      "category": "전기차 지원",
+      "body": null,
+      "items": null,
+      "left": null,
+      "right": null,
+      "cta": null
+    },
+    {
+      "group_id": "G1",
+      "layout_id": "checklist",
+      "sids": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "title": "아산시 전기차 보조금 대상과 규모",
+      "image_query": "electric vehicle subsidy",
+      "category": null,
+      "body": null,
+      "items": [
+        "전기차 196대 지원(일반 176대, 취약계층 20대)",
+        "승용 최대 1800만원, 초소형 최대 870만원",
+        "개인 1인 1대, 법인·기업 최대 3대 가능",
+        "만 18세 이상 아산시민 및 지역 내 법인",
+        "공공기관·지방공기업 신청 가능(중앙행정기관 제외)"
+      ],
+      "left": null,
+      "right": null,
+      "cta": null
+    },
+    {
+      "group_id": "G2",
+      "layout_id": "body",
+      "sids": [
+        "S4"
+      ],
+      "title": "전기차 구매 시 연금 자격이 변할 수 있어요",
+      "image_query": "wheelchair electric car",
+      "category": null,
+      "body": "장애인 등 사회취약계층은 전기차 구매 후 차량가액에 따라 기초연금, 장애인연금 수급에서 탈락할 가능성이 있으니 주의해야 합니다.",
+      "items": null,
+      "left": null,
+      "right": null,
+      "cta": null
+    },
+    {
+      "group_id": "G3",
+      "layout_id": "steps",
+      "sids": [
+        "S5",
+        "S6",
+        "S7",
+        "S8"
+      ],
+      "title": "전기차 보조금 신청 절차와 유의사항",
+      "image_query": "electric car dealership",
+      "category": null,
+      "body": null,
+      "items": [
+        "3월 18일부터 예산 소진 시까지 신청",
+        "환경부 보조금 시스템으로 접수 진행",
+        "판매 대리점 방문해 구매계약과 신청서 제출",
+        "2개월 내 출고 없으면 선정 취소·대기자 전환"
+      ],
+      "left": null,
+      "right": null,
+      "cta": null
+    },
+    {
+      "group_id": "G4",
+      "layout_id": "body",
+      "sids": [
+        "S9"
+      ],
+      "title": "아산시가 친환경차 보급을 늘립니다",
+      "image_query": "environmental friendly car",
+      "category": null,
+      "body": "아산시 기후변화대책과 관계자는 앞으로 친환경자동차 보급을 늘리겠다고 밝혔습니다.",
+      "items": null,
+      "left": null,
+      "right": null,
+      "cta": null
+    },
+    {
+      "group_id": null,
+      "layout_id": "closing",
+      "sids": [],
+      "title": "아산시 전기자동차 지원 소식 마칩니다",
+      "image_query": "electric car city",
+      "category": null,
+      "body": "전기차 보조금 신청은 예산 소진 전까지 받습니다. 자세한 내용은 아산시 공식 채널을 확인하세요.",
+      "items": null,
+      "left": null,
+      "right": null,
+      "cta": "더 알아보기"
+    }
+  ]
+}

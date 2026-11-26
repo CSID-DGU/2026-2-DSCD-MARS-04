@@ -1,0 +1,39 @@
+# 완성 카드 비교(CardSync vs 망고보드) 판정 — offline smoke (fixture, API 호출 없음)
+# 저장된 판정 JSON을 돌려주고, 판정 형식과 사람 판정 일치도 계산이 작동하는지만 확인한다.
+# 실제 판정: compare_vision.yaml (OPENAI_API_KEY 필요, data/compare/ 사례 폴더 필요)
+description: 완성 카드 비교 판정 — offline smoke (fixture)
+
+prompts:
+  - "{{case_id}} {{service}}"
+
+providers:
+  - id: file://providers/compare_judge.py
+    label: compare_judge_fixture
+    config:
+      mode: replay
+
+defaultTest:
+  vars:
+    service: CardSync
+    source: 아산시는 전기차 196대를 지원하며 초소형 보조금은 최대 870만원이다.
+    card_ids: '["C1", "C2"]'
+    fact_ids: '["F1", "F2"]'
+  assert:
+    - type: python
+      value: file://assertions/compare_judgment.py:valid_compare_judgment
+      metric: valid_compare_judgment
+    - type: python
+      value: file://assertions/compare_judgment.py:human_agreement
+      metric: human_agreement
+
+tests:
+  - description: 계약을 지킨 판정, 사람 판정 5개 중 4개 일치 (기준 0.8 → 통과)
+    vars:
+      case_id: smoke_compare_valid
+      min_agreement: 0.8
+      human: file://fixtures/compare_human.json
+  - description: 판정 누락·허용값 아님·spans 없음·원문에 없는 인용 (형식 실패가 정상), 일치 기준 0.9 (실패가 정상)
+    vars:
+      case_id: smoke_compare_broken
+      min_agreement: 0.9
+      human: file://fixtures/compare_human.json

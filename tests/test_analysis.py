@@ -1,0 +1,368 @@
+import json
+import re
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+from ai.analysis import agent
+from ai.analysis.agent import analyze, estimate_cost
+from ai.analysis.grouper import GroupingResult, check_grouping, group_sentences, order_groups
+from ai.analysis.summarizer import SummaryResult, summarize_groups
+from ai.verification.consistency.checker import JudgmentResult
+from data_pipeline.schemas.group import GroupAnalysis
+
+SENTENCES = [
+    {"sentence_id": "S1", "text": "군은 14일 교육을 했다."},
+    {"sentence_id": "S2", "text": "주민 1,200명이 참석했다."},
+    {"sentence_id": "S3", "text": "감시원 58명을 배치했다."},
+    {"sentence_id": "S4", "text": "행사는 무사히 끝났다."},
+]
+IDS = [s["sentence_id"] for s in SENTENCES]
+GOOD_GROUPS = [
+    {"group_id": "G1", "sentence_ids": ["S1", "S2"]},
+    {"group_id": "G2", "sentence_ids": ["S3"]},
+    {"group_id": "G3", "sentence_ids": ["S4"]},
+]
+SOURCE_TEXT = " ".join(s["text"] for s in SENTENCES)
+
+
+def keep_all(group: dict) -> str:
+    return " ".join(s["text"] for s in group["sentences"])
+
+
+def drop_numbers(group: dict) -> str:
+    return re.sub(r"\d[\d,]*", "", keep_all(group))
+
+
+def all_supported(item: dict) -> list[dict]:
+    return []
+
+
+def fake_client(groupings=None, summarize=keep_all, judge=all_supported):
+    """그룹화는 groupings를 순서대로 돌려주고, 요약은 summarize(그룹)로 만든다.
+    사실성은 judge(문장)가 돌려준 문제 목록이 비어 있으면 일치로 본다."""
+    groupings = list(groupings or [GOOD_GROUPS])
+
+    def parse(**kwargs):
+        payload = json.loads(kwargs["input"][1]["content"])
+        if kwargs["text_format"] is GroupingResult:
+            groups = groupings.pop(0) if len(groupings) > 1 else groupings[0]
+            parsed = GroupingResult.model_validate({"groups": groups})
+        elif kwargs["text_format"] is JudgmentResult:
+            judgments = []
+            for item in payload["items"]:
+                problems = judge(item)
+                judgments.append(
+                    {"item_id": item["item_id"], "supported": not problems, "problems": problems}
+                )
+            parsed = JudgmentResult.model_validate({"judgments": judgments})
+        else:
+            summaries = [
+                {"group_id": g["group_id"], "summary": summarize(g)} for g in payload["groups"]
+            ]
+            parsed = SummaryResult.model_validate({"summaries": summaries})
+        return SimpleNamespace(
+            output_parsed=parsed,
+            usage=SimpleNamespace(input_tokens=1000, output_tokens=100),
+            model="gpt-4.1-mini-2025-04-14",
+        )
+
+    client = Mock()
+    client.responses.parse.side_effect = parse
+    return client
+
+
+def requested(client, text_format) -> list[dict]:
+    """해당 단계에서 API에 보낸 입력들."""
+    return [
+        json.loads(call.kwargs["input"][1]["content"])
+        for call in client.responses.parse.call_args_list
+        if call.kwargs["text_format"] is text_format
+    ]
+
+
+@pytest.fixture(autouse=True)
+def isolate_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("GROUPING_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("SUMMARY_MODEL", "gpt-6-luna")
+    monkeypatch.setenv("ANALYSIS_LOG_PATH", str(tmp_path / "analysis.jsonl"))
+    monkeypatch.setattr(agent, "split_sentences", lambda text: SENTENCES if text else [])
+
+
+# ---------- 그룹화 ----------
+
+
+@pytest.mark.parametrize(
+    "groups,message",
+    [
+        ([{"group_id": "G1", "sentence_ids": ["S1", "S2", "S3"]}], "들어가지 않은"),
+        (GOOD_GROUPS + [{"group_id": "G4", "sentence_ids": ["S4"]}], "두 번 이상"),
+        (GOOD_GROUPS + [{"group_id": "G4", "sentence_ids": ["S9"]}], "없는 문장 ID"),
+        (
+            [
+                {"group_id": "G1", "sentence_ids": ["S1", "S3"]},
+                {"group_id": "G2", "sentence_ids": ["S2", "S4"]},
+            ],
+            "붙어 있지 않은",
+        ),
+        (GOOD_GROUPS + [{"group_id": "G4", "sentence_ids": []}], "빈 그룹"),
+    ],
+    ids=["missing", "duplicate", "unknown", "not_contiguous", "empty"],
+)
+def test_check_grouping_catches_errors(groups, message):
+    errors = check_grouping(IDS, groups)
+    assert any(message in error for error in errors)
+
+
+def test_check_grouping_passes_good_groups():
+    assert check_grouping(IDS, GOOD_GROUPS) == []
+
+
+def test_order_groups_sorts_and_renumbers():
+    shuffled = [
+        {"group_id": "A", "sentence_ids": ["S4"]},
+        {"group_id": "B", "sentence_ids": ["S2", "S1"]},
+        {"group_id": "C", "sentence_ids": ["S3"]},
+    ]
+    assert order_groups(shuffled, IDS) == GOOD_GROUPS
+
+
+def test_grouping_retry_recovers_and_records_each_call():
+    first = [{"group_id": "G1", "sentence_ids": ["S1", "S2", "S3"]}]
+    client = fake_client(groupings=[first, GOOD_GROUPS])
+    result = group_sentences(SENTENCES, client=client)
+
+    assert result["valid"] and not result["first_try_valid"]
+    assert result["attempts"] == 2
+    assert [call["attempt"] for call in result["calls"]] == [1, 2]
+    assert result["calls"][0]["errors"] and result["calls"][1]["errors"] == []
+    assert "previous_errors" in requested(client, GroupingResult)[1]
+    assert result["input_tokens"] == 2000
+
+
+def test_grouping_stops_after_max_retries():
+    bad = [{"group_id": "G1", "sentence_ids": ["S1"]}]
+    client = fake_client(groupings=[bad])
+    result = group_sentences(SENTENCES, client=client, max_retries=1)
+
+    assert not result["valid"]
+    assert result["attempts"] == 2
+    assert client.responses.parse.call_count == 2
+
+
+# ---------- 요약 ----------
+
+
+def test_summary_passes_without_retry():
+    client = fake_client()
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["attempts"] == 1
+    assert result["retried_group_ids"] == [] and result["fallback_group_ids"] == []
+    assert len(result["calls"]) == 1
+
+
+def test_summary_retries_only_failed_group_and_recovers():
+    def g2_fixed_on_retry(group):
+        if group["group_id"] == "G2" and "previous_error" not in group:
+            return drop_numbers(group)
+        return keep_all(group)
+
+    client = fake_client(summarize=g2_fixed_on_retry)
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["retried_group_ids"] == ["G2"]
+    assert result["fallback_group_ids"] == []
+    assert result["calls"][1]["group_ids"] == ["G2"]
+    retry_input = requested(client, SummaryResult)[1]
+    assert [g["group_id"] for g in retry_input["groups"]] == ["G2"]
+    assert "58" in retry_input["groups"][0]["previous_error"]
+
+
+def test_summary_falls_back_to_source_when_retry_fails():
+    client = fake_client(summarize=drop_numbers)
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["attempts"] == 2
+    assert set(result["fallback_group_ids"]) == {"G1", "G2"}
+    summaries = {g["group_id"]: g["summary"] for g in result["groups"]}
+    assert summaries["G1"] == "군은 14일 교육을 했다. 주민 1,200명이 참석했다."
+    assert summaries["G2"] == "감시원 58명을 배치했다."
+    assert summaries["G3"] == "행사는 무사히 끝났다."
+
+
+def change_only(group_id, change):
+    """group_id 그룹만 change로 요약하고, 나머지 그룹은 원문 그대로 둔다."""
+    return lambda group: change(group) if group["group_id"] == group_id else keep_all(group)
+
+
+def unsupported_in(*texts):
+    """요약 문장에 texts 중 하나가 있으면 불일치로 판정한다."""
+
+    def judge(item):
+        return [{"quote": t, "reason": "원문과 다릅니다."} for t in texts if t in item["text"]]
+
+    return judge
+
+
+def test_consistency_fail_is_retried_with_reason():
+    def g3_fixed_on_retry(group):
+        if group["group_id"] == "G3" and "previous_error" not in group:
+            return "행사는 성대하게 끝났다."
+        return keep_all(group)
+
+    client = fake_client(summarize=g3_fixed_on_retry, judge=unsupported_in("성대하게"))
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["retried_group_ids"] == ["G3"]
+    assert result["fallback_group_ids"] == []
+    error = requested(client, SummaryResult)[1]["groups"][0]["previous_error"]
+    assert "성대하게" in error and "원문과 다릅니다" in error
+    assert result["calls"][0]["consistency"]["input_tokens"] == 1000
+
+
+def test_consistency_fail_falls_back_to_source():
+    client = fake_client(
+        summarize=change_only("G3", lambda group: "행사는 성대하게 끝났다."),
+        judge=unsupported_in("성대하게"),
+    )
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    assert result["fallback_group_ids"] == ["G3"]
+    assert result["groups"][2]["summary"] == "행사는 무사히 끝났다."
+
+
+def test_consistency_skips_rule_failures_and_uses_previous_sentence():
+    client = fake_client(summarize=change_only("G1", drop_numbers))
+    summarize_groups(SENTENCES, GOOD_GROUPS, client=client)
+
+    first_check = requested(client, JudgmentResult)[0]["items"]
+    assert {i["item_id"].split("#")[0] for i in first_check} == {"G2", "G3"}
+    g2 = next(i for i in first_check if i["item_id"].startswith("G2"))
+    assert g2["source"] == "주민 1,200명이 참석했다. 감시원 58명을 배치했다."
+
+
+def test_empty_summary_is_retried():
+    def empty_first(group):
+        return keep_all(group) if "previous_error" in group else ""
+
+    result = summarize_groups(SENTENCES, GOOD_GROUPS, client=fake_client(summarize=empty_first))
+    assert len(result["retried_group_ids"]) == 3
+    assert result["fallback_group_ids"] == []
+
+
+# ---------- 분석 에이전트: 출력 ----------
+
+
+def test_analyze_output_matches_group_analysis():
+    result = analyze("news_001", SOURCE_TEXT, client=fake_client())
+
+    assert set(result) == {"document_id", "groups", "sentences", "summary_check"}
+    assert result["document_id"] == "news_001"
+    for group in result["groups"]:
+        assert set(group) == {"group_id", "sentence_ids", "summary"}
+        GroupAnalysis.model_validate(group)
+    used = [i for g in result["groups"] for i in g["sentence_ids"]]
+    assert used == IDS
+    # 호출자가 문장 분리를 다시 돌리지 않도록 분석에 쓴 문장을 그대로 돌려준다
+    assert [s["sentence_id"] for s in result["sentences"]] == IDS
+    assert set(result["summary_check"]) == {
+        "retried_group_ids",
+        "fallback_group_ids",
+        "fallback_reasons",
+    }
+
+
+# ---------- 분석 에이전트: 로그 ----------
+
+
+def read_log(tmp_path) -> list[dict]:
+    path = tmp_path / "analysis.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_success_log_appends_and_records_calls(tmp_path):
+    client = fake_client(summarize=drop_numbers)
+    for _ in range(2):
+        analyze("news_001", SOURCE_TEXT, client=client)
+
+    records = read_log(tmp_path)
+    assert len(records) == 2
+    assert records[0]["run_id"] != records[1]["run_id"]
+
+    record = records[0]
+    assert record["status"] == "success"
+    assert record["stage"] == "output"
+    assert record["sentence_count"] == 4
+    assert len(record["source_sha256"]) == 64
+    assert record["grouping"]["response_model"] == "gpt-4.1-mini-2025-04-14"
+    assert record["grouping"]["max_retries"] == 1
+    assert len(record["grouping"]["prompt_sha256"]) == 64
+    assert record["summary"]["attempts"] == 2
+    assert [c["attempt"] for c in record["summary"]["calls"]] == [1, 2]
+    assert record["summary"]["calls"][1]["requested_group_ids"] == ["G1", "G2"]
+    fact = record["summary"]["calls"][0]["consistency"]
+    assert fact["input_tokens"] == 1000 and fact["estimated_cost_usd"] > 0
+    calls = record["summary"]["calls"]
+    costs = [c["estimated_cost_usd"] for c in calls]
+    costs += [c["consistency"]["estimated_cost_usd"] for c in calls if "consistency" in c]
+    assert record["summary"]["estimated_cost_usd"] == pytest.approx(sum(costs))
+    assert record["estimated_cost_usd"] == pytest.approx(
+        record["grouping"]["estimated_cost_usd"] + record["summary"]["estimated_cost_usd"]
+    )
+    assert record["result"]["document_id"] == "news_001"
+
+
+def test_log_does_not_contain_source_text(tmp_path):
+    def shorten(group):
+        return keep_all(group).replace("교육을 했다", "교육")
+
+    analyze("news_001", SOURCE_TEXT, client=fake_client(summarize=shorten))
+    text = (tmp_path / "analysis.jsonl").read_text(encoding="utf-8")
+    assert "교육을 했다" not in text
+
+
+@pytest.mark.parametrize("failure", ["split", "grouping", "api"])
+def test_failure_log_and_original_exception(tmp_path, failure):
+    client = fake_client()
+    text = SOURCE_TEXT
+    if failure == "split":
+        text = ""
+    elif failure == "grouping":
+        client = fake_client(groupings=[[{"group_id": "G1", "sentence_ids": ["S1"]}]])
+    else:
+        client.responses.parse.side_effect = RuntimeError("secret-input-and-key")
+
+    with pytest.raises((ValueError, RuntimeError)):
+        analyze("news_001", text, client=client)
+
+    record = read_log(tmp_path)[0]
+    assert record["status"] == "failed"
+    expected_stage = {"split": "split", "grouping": "grouping", "api": "grouping"}[failure]
+    assert record["error"]["stage"] == expected_stage
+    assert "result" not in record
+    assert "secret-input-and-key" not in (tmp_path / "analysis.jsonl").read_text(encoding="utf-8")
+    if failure == "grouping":
+        assert record["grouping"]["valid"] is False
+        assert record["grouping"]["attempts"] == 2
+
+
+def test_log_write_failure_does_not_replace_result(tmp_path, capsys):
+    result = analyze("news_001", SOURCE_TEXT, client=fake_client(), log_path=tmp_path)
+    assert result["document_id"] == "news_001"
+    assert "로그 파일" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        ("gpt-4.1-mini-2025-04-14", 0.56),
+        ("gpt-4.1-mini", 0.56),
+        ("gpt-6-luna", 0.15),
+        ("o3", None),
+        (None, None),
+    ],
+)
+def test_estimate_cost(model, expected):
+    assert estimate_cost(model, 1_000_000, 100_000) == expected

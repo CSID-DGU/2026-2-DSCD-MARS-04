@@ -1,0 +1,38 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Experiment data and results
+data/samples/original_text.xlsx
+data/samples/aihub/
+data/samples/mface/
+data/compare/
+data/outputs/
+experiments/**/results/
+experiments/my_experiments/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+coverage/
+
+# IDE and system files
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Generation run logs
+logs/

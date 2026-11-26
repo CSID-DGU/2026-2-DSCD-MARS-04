@@ -1,0 +1,799 @@
+[
+ {
+  "key": "savings",
+  "source": {
+   "url": "https://www.korea.kr/news/policyNewsView.do?newsId=148963836",
+   "title": "월 10만 원 저축하면 3년 뒤 1440만 원…'청년내일저축계좌' 접수",
+   "date": "2026.10.16",
+   "license": "공공누리 제1유형(출처표시)"
+  },
+  "sourceImages": [
+   {
+    "url": "https://www.korea.kr/newsWeb/resources/attaches/2026.05/04/PYH2023050103190001302.jpg",
+    "caption": "1일 서울 동작구 노량진2동 주민센터에서 한 청년이 계좌를 신청하고 있다. 2023.5.1 (사진=저작권자(c) 연합뉴스, 무단 전재-재배포 금지)",
+    "reason": "연합뉴스 저작물 · 허락 필요"
+   },
+   {
+    "url": "https://www.korea.kr/newsWeb/resources/attaches/2026.05/04/20260504002.jpg",
+    "caption": "청년내일저축계좌 개요 (2026년 기준)",
+    "reason": "정책브리핑: 사진·이미지는 저작권자 허락 필요"
+   }
+  ],
+  "sentences": [
+   {
+    "id": "S1",
+    "text": "기준 중위소득 50% 이하의 일하는 청년이 매월 10만 원을 저축하면, 정부 지원을 더해 3년 뒤 최대 1440만 원과 이자를 받을 수 있는 '청년내일저축계좌' 신규 가입자를 모집한다."
+   },
+   {
+    "id": "S2",
+    "text": "보건복지부는 이달 4일부터 20일까지 '청년내일저축계좌' 2026년 신규 가입자 2만 5000명을 모집한다고 밝혔다."
+   },
+   {
+    "id": "S3",
+    "text": "청년내일저축계좌는 일하는 저소득층 청년의 자산 형성을 지원하기 위해 마련된 사업으로, 기준 중위소득 50% 이하의 청년이 가입할 경우 매월 본인 저축금(10만~50만 원)에 대해 정부가 월 30만 원을 추가 지원한다."
+   },
+   {
+    "id": "S4",
+    "text": "월 10만 원을 3년간 꾸준히 저축하면 본인 저축금 360만 원에 정부 지원금이 더해져 총 1440만 원과 최대 연 5% 수준의 적금 이자를 받을 수 있다."
+   },
+   {
+    "id": "S5",
+    "text": "가입자는 만기 수령을 위해 근로활동을 유지하면서 저축을 지속해야 하며, 자산형성포털을 통한 자립역량교육 10시간 이수와 자금활용계획서 제출 등의 요건을 충족해야 한다."
+   },
+   {
+    "id": "S6",
+    "text": "이번 모집은 정책 대상이 조정된 것이 특징이다."
+   },
+   {
+    "id": "S7",
+    "text": "기존에는 기준 중위소득 100% 이하 청년까지 가입이 가능했으나, 올해부터는 '청년미래적금' 도입에 따라 기초생활수급자 및 기준 중위소득 50% 이하 차상위계층 청년 중심으로 지원을 집중한다."
+   },
+   {
+    "id": "S8",
+    "text": "청년미래적금은 기준 중위소득 200% 이하 청년을 대상으로 3년간 본인 납입금(월 최대 50만 원)에 대해 6~12%의 정률 지원을 제공하는 별도 제도다."
+   },
+   {
+    "id": "S9",
+    "text": "아울러 청년과 지자체 현장 의견을 반영한 제도 개선도 함께 추진된다."
+   },
+   {
+    "id": "S10",
+    "text": "먼저, 적립중지 제도가 확대된다."
+   },
+   {
+    "id": "S11",
+    "text": "기존에는 실직·질병 등 사유 발생 시 최대 6개월까지 적립을 중지할 수 있었으나, 앞으로는 일시적인 소득활동 중단에도 계좌를 유지할 수 있도록 최대 12개월까지 확대된다."
+   },
+   {
+    "id": "S12",
+    "text": "또한 금융교육 프로그램도 개선된다."
+   },
+   {
+    "id": "S13",
+    "text": "기존 오프라인 특강 중심에서 온라인 교육과 비대면 금융상담을 병행하는 방식으로 개편하고, 1대1 오프라인 컨설팅을 통해 개인별 맞춤형 상담을 제공한다."
+   },
+   {
+    "id": "S14",
+    "text": "신청은 복지로 누리집(www.bokjiro.go.kr)에서 온라인으로 가능하며, 주소지 관할 읍면동 행정복지센터 방문 신청도 가능하다."
+   },
+   {
+    "id": "S15",
+    "text": "신청 전 자산형성포털(hope.welfareinfo.or.kr)에서 제출서류를 확인하고 관련 양식을 준비해야 한다."
+   },
+   {
+    "id": "S16",
+    "text": "대상자 선정 결과는 소득·재산 조사 등을 거쳐 8월 중 개별 문자로 안내되며, 자산형성포털에서도 확인할 수 있다."
+   },
+   {
+    "id": "S17",
+    "text": "선정된 청년은 하나은행 지점 방문 또는 모바일 앱을 통해 계좌를 개설한 뒤 8월부터 저축을 시작하면 된다."
+   },
+   {
+    "id": "S18",
+    "text": "자세한 사항은 자산형성포털 챗봇서비스, 자산형성지원콜센터(1522-3690), 읍면동 행정복지센터를 통해 안내받을 수 있다."
+   },
+   {
+    "id": "S19",
+    "text": "배경택 보건복지부 복지정책관은 \"청년내일저축계좌는 차상위 이하 청년의 자립을 돕는 대표 사업\"이라며 \"청년들이 안정적으로 사회에 진입할 수 있도록 지속적으로 지원하겠다\"고 밝혔다."
+   }
+  ],
+  "groups": [
+   {
+    "id": "G1",
+    "title": "사업 개요 및 혜택",
+    "sids": [
+     "S1",
+     "S3",
+     "S4"
+    ]
+   },
+   {
+    "id": "G2",
+    "title": "모집 규모 및 가입 요건",
+    "sids": [
+     "S2",
+     "S5"
+    ]
+   },
+   {
+    "id": "G3",
+    "title": "정책 대상 조정",
+    "sids": [
+     "S6",
+     "S7",
+     "S8"
+    ]
+   },
+   {
+    "id": "G4",
+    "title": "제도 개선 사항",
+    "sids": [
+     "S9",
+     "S10",
+     "S11",
+     "S12",
+     "S13"
+    ]
+   },
+   {
+    "id": "G5",
+    "title": "신청 및 선정 절차",
+    "sids": [
+     "S14",
+     "S15",
+     "S16",
+     "S17"
+    ]
+   },
+   {
+    "id": "G6",
+    "title": "문의 및 담당자 발언",
+    "sids": [
+     "S18",
+     "S19"
+    ]
+   }
+  ],
+  "cards": [
+   {
+    "id": "C1",
+    "layout": "cover",
+    "sids": [
+     "S1"
+    ],
+    "image_query": "young adult saving money coins",
+    "title": "월 10만 원 저축하면\n3년 뒤 최대 1440만 원",
+    "category": "청년 자산형성",
+    "image": {
+     "stage": "unsplash",
+     "query": "young adult saving money coins",
+     "id": "jpqyfK7GB4w",
+     "data": "/samples/savings-C1.jpg",
+     "alt": "a person stacking coins on top of a table",
+     "author": "Towfiqu barbhuiya",
+     "author_url": "https://unsplash.com/@towfiqu999999?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/a-person-stacking-coins-on-top-of-a-table-jpqyfK7GB4w?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    },
+    "repair": {
+     "fields": {
+      "title": "월 10만 원 저축하면\n3년 뒤 최대 1440만 원",
+      "category": "중위소득 50% 이하"
+     },
+     "check": {
+      "card_id": "C1",
+      "verdict": "bad",
+      "summary": "카드가 '일하는 청년'이라는 조건을 빼서 대상이 소득 기준만 충족하면 되는 것처럼 읽히고, 이자 지급도 빠져 있다.",
+      "issues": [
+       {
+        "type": "정보 누락",
+        "source_span": "기준 중위소득 50% 이하의 일하는 청년이",
+        "card_span": "중위소득 50% 이하",
+        "explanation": "원문은 소득 기준과 함께 '일하는 청년'이라는 조건을 요구하는데, 카드는 소득 기준만 제시해 가입 대상이 넓어진 것처럼 보인다.",
+        "source_span_original": "기준 중위소득 50% 이하의 일하는 청년이",
+        "source_found": true,
+        "card_found": true
+       },
+       {
+        "type": "정보 누락",
+        "source_span": "최대 1440만 원과 이자를 받을 수 있는",
+        "card_span": "최대 1440만 원",
+        "explanation": "원문은 1440만 원에 이자가 더해진다고 하지만 카드는 이자 지급을 언급하지 않는다.",
+        "source_found": true,
+        "card_found": true
+       }
+      ]
+     },
+     "lint": [
+      "C1.category 11자 > 10자"
+     ]
+    }
+   },
+   {
+    "id": "C2",
+    "layout": "body",
+    "sids": [
+     "S4",
+     "S3"
+    ],
+    "image_query": "piggy bank savings growth",
+    "title": "3년 뒤 받는 돈 구조",
+    "body": "매월 10만 원씩 3년간 저축하면 본인 저축금 360만 원에 정부 지원금이 더해져 최대 1440만 원과 최대 연 5% 수준의 적금 이자를 받을 수 있습니다.",
+    "image": {
+     "stage": "unsplash",
+     "query": "piggy bank savings growth",
+     "id": "5OUMf1Mr5pU",
+     "data": "/samples/savings-C2.jpg",
+     "alt": "pink pig coin bank on brown wooden table",
+     "author": "Andre Taissin",
+     "author_url": "https://unsplash.com/@andretaissin?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/pink-pig-coin-bank-on-brown-wooden-table-5OUMf1Mr5pU?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    },
+    "repair": {
+     "fields": {
+      "title": "3년 뒤 받는 돈 구조",
+      "body": "기준 중위소득 50% 이하 일하는 청년이 매월 10만 원씩 3년간 저축하면 정부가 월 30만 원을 더해 최대 1440만 원과 최대 연 5% 수준의 적금 이자를 받을 수 있습니다."
+     },
+     "check": {
+      "card_id": "C2",
+      "verdict": "warn",
+      "summary": "월 저축액을 10만 원으로 고정해 제시해, 원문의 10만~50만 원 범위가 빠져 있다.",
+      "issues": [
+       {
+        "type": "정보 누락",
+        "source_span": "매월 본인 저축금(10만~50만 원)",
+        "card_span": "매월 10만 원씩 3년간 저축하면",
+        "explanation": "원문은 본인 저축금이 월 10만~50만 원 범위에서 선택 가능하다고 하는데, 카드는 10만 원만 제시해 조건이 좁아 보인다.",
+        "source_found": true,
+        "card_found": true
+       }
+      ]
+     },
+     "lint": []
+    }
+   },
+   {
+    "id": "C3",
+    "layout": "checklist",
+    "sids": [
+     "S1",
+     "S3",
+     "S5"
+    ],
+    "image_query": "checklist notebook desk",
+    "title": "가입 대상과 요건",
+    "items": [
+     "기준 중위소득 50% 이하 일하는 청년",
+     "매월 10만~50만 원 본인 저축",
+     "만기까지 근로활동 유지하며 저축 지속",
+     "자립역량교육 10시간 이수, 자금활용계획서 제출"
+    ],
+    "image": {
+     "stage": "unsplash",
+     "query": "checklist notebook desk",
+     "id": "RLw-UC03Gwc",
+     "data": "/samples/savings-C3.jpg",
+     "alt": "person writing bucket list on book",
+     "author": "Glenn Carstens-Peters",
+     "author_url": "https://unsplash.com/@glenncarstenspeters?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/person-writing-bucket-list-on-book-RLw-UC03Gwc?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C4",
+    "layout": "compare",
+    "sids": [
+     "S6",
+     "S7"
+    ],
+    "image_query": "office documents comparison",
+    "title": "지원 대상이 조정됐어요",
+    "left": {
+     "label": "기존",
+     "value": "기준 중위소득 100% 이하 청년"
+    },
+    "right": {
+     "label": "올해부터",
+     "value": "기초생활수급자 및 기준 중위소득 50% 이하 차상위계층 청년 중심"
+    },
+    "image": {
+     "stage": "unsplash",
+     "query": "office documents comparison",
+     "id": "tn57JI3CewI",
+     "data": "/samples/savings-C4.jpg",
+     "alt": "pile of printing papers",
+     "author": "Alexander Grey",
+     "author_url": "https://unsplash.com/@sharonmccutcheon?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/pile-of-printing-papers-tn57JI3CewI?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C5",
+    "layout": "checklist",
+    "sids": [
+     "S10",
+     "S11",
+     "S13"
+    ],
+    "image_query": "online finance education laptop",
+    "title": "제도 개선 사항",
+    "items": [
+     "적립중지 최대 6개월에서 12개월로 확대",
+     "일시적 소득활동 중단에도 계좌 유지 가능",
+     "온라인 교육과 비대면 금융상담 병행",
+     "1대1 오프라인 컨설팅으로 맞춤 상담 제공"
+    ],
+    "image": {
+     "stage": "unsplash",
+     "query": "online finance education laptop",
+     "id": "1SAnrIxw5OY",
+     "data": "/samples/savings-C5.jpg",
+     "alt": "MacBook Pro on top of brown table",
+     "author": "Kari Shea",
+     "author_url": "https://unsplash.com/@karishea?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/macbook-pro-on-top-of-brown-table-1SAnrIxw5OY?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C6",
+    "layout": "steps",
+    "sids": [
+     "S15",
+     "S14",
+     "S16",
+     "S17"
+    ],
+    "image_query": "person filling application form laptop",
+    "title": "신청은 이렇게 하세요",
+    "items": [
+     "자산형성포털에서 제출서류와 양식 확인",
+     "복지로 온라인 신청 또는 읍면동 방문 신청",
+     "8월 중 개별 문자로 선정 결과 안내",
+     "선정 후 하나은행 지점 또는 앱에서 계좌 개설"
+    ],
+    "image": {
+     "stage": "unsplash",
+     "query": "person filling application form laptop",
+     "id": "npxXWgQ33ZQ",
+     "data": "/samples/savings-C6.jpg",
+     "alt": "person using MacBook Pro",
+     "author": "Glenn Carstens-Peters",
+     "author_url": "https://unsplash.com/@glenncarstenspeters?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/person-using-macbook-pro-npxXWgQ33ZQ?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C7",
+    "layout": "closing",
+    "sids": [
+     "S2",
+     "S18"
+    ],
+    "image_query": "city community service center building",
+    "title": "이달 4~20일 접수",
+    "body": "2026년 신규 가입자 2만 5000명을 모집합니다. 문의: 자산형성지원콜센터 1522-3690",
+    "cta": "자산형성포털에서 확인하세요",
+    "image": {
+     "stage": "unsplash",
+     "query": "city community service center building",
+     "id": "oP3nIwkDLSI",
+     "data": "/samples/savings-C7.jpg",
+     "alt": "The Town Hall building with classical columns beside a tall brick building",
+     "author": "Brooke Balentine",
+     "author_url": "https://unsplash.com/@brookebalentine?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/town-hall-building-with-brick-architecture-oP3nIwkDLSI?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   }
+  ],
+  "checks": {
+   "C1": {
+    "card_id": "C1",
+    "verdict": "warn",
+    "summary": "카드 헤드라인이 근거의 대상 조건(기준 중위소득 50% 이하 일하는 청년)을 빼서, 누구나 받을 수 있는 것처럼 읽힐 수 있다.",
+    "issues": [
+     {
+      "type": "정보 누락",
+      "source_span": "기준 중위소득 50% 이하의 일하는 청년이",
+      "card_span": "월 10만 원 저축하면",
+      "explanation": "1440만 원 지급 조건인 대상 요건이 카드 문구에서 빠져 있다.",
+      "source_found": true,
+      "card_found": true,
+      "source_span_original": "기준 중위소득 50% 이하의 일하는 청년이"
+     }
+    ]
+   },
+   "C2": {
+    "card_id": "C2",
+    "verdict": "warn",
+    "summary": "본인 저축금과 정부 지원금 구조는 맞지만, 1440만 원 지원이 기준 중위소득 50% 이하 청년에 한정된다는 조건이 빠졌다.",
+    "issues": [
+     {
+      "type": "정보 누락",
+      "source_span": "기준 중위소득 50% 이하의 청년이 가입할 경우",
+      "card_span": "매월 10만 원씩 3년간 저축하면",
+      "explanation": "정부 월 30만 원 추가 지원과 최대 1440만 원의 전제인 가입 대상 조건이 카드에 없다.",
+      "source_found": true,
+      "card_found": true
+     }
+    ]
+   },
+   "C3": {
+    "card_id": "C3",
+    "verdict": "ok",
+    "summary": "대상, 저축액, 근로 유지, 교육 이수, 계획서 제출 요건이 근거와 일치한다.",
+    "issues": []
+   },
+   "C4": {
+    "card_id": "C4",
+    "verdict": "ok",
+    "summary": "기존 100% 이하에서 올해부터 기초생활수급자 및 50% 이하 차상위계층 중심으로 바뀐 내용이 정확히 반영됐다.",
+    "issues": []
+   },
+   "C5": {
+    "card_id": "C5",
+    "verdict": "ok",
+    "summary": "적립중지 기간 6개월에서 12개월 확대, 계좌 유지, 온라인·비대면 병행, 1대1 컨설팅 내용이 근거와 같다.",
+    "issues": []
+   },
+   "C6": {
+    "card_id": "C6",
+    "verdict": "ok",
+    "summary": "서류 확인, 신청 경로, 8월 개별 문자 안내, 하나은행 계좌 개설 절차가 근거와 일치한다.",
+    "issues": []
+   },
+   "C7": {
+    "card_id": "C7",
+    "verdict": "ok",
+    "summary": "접수 기간, 모집 인원, 콜센터 번호, 포털 안내가 근거와 일치한다.",
+    "issues": []
+   }
+  }
+ },
+ {
+  "key": "artpass",
+  "source": {
+   "url": "https://www.korea.kr/news/policyNewsView.do?newsId=148969779",
+   "title": "'청년문화예술패스' 하반기 추가 발급…도서 구입도 지원",
+   "date": "2026.10.16",
+   "license": "공공누리 제1유형(출처표시)"
+  },
+  "sourceImages": [
+   {
+    "url": "https://www.korea.kr/newsWeb/resources/attaches/2026.08/10/PYH2026073017060001300(0).jpg",
+    "caption": "사진은 지난달 30일 서울 은평구 불광문고 수련점의 모습.(사진=저작권자(c) 연합뉴스, 무단 전재-재배포 금지)",
+    "reason": "연합뉴스 저작물 · 허락 필요"
+   },
+   {
+    "url": "https://www.korea.kr/newsWeb/resources/attaches/2026.08/10/121137(1).jpg",
+    "caption": "'청년문화예술패스' 포스터(이미지=문체부 제공)",
+    "reason": "정책브리핑: 사진·이미지는 저작권자 허락 필요"
+   }
+  ],
+  "sentences": [
+   {
+    "id": "S1",
+    "text": "도서까지 지원분야를 확대한 '청년문화예술패스'를 2006년생과 2007년생에게 상반기에 이어 하반기에 추가로 발급한다."
+   },
+   {
+    "id": "S2",
+    "text": "문화체육관광부는 한국문화예술위원회와 함께 '청년문화예술패스' 추가 발급 신청을 오는 11월 30일까지 공식 누리집(https://youthculturepass.or.kr)에서 받는다고 10일 밝혔다."
+   },
+   {
+    "id": "S3",
+    "text": "'청년문화예술패스'는 19~20세 청년에게 공연·전시·영화 등 문화예술 향유 기회를 제공하는 사업으로 올해는 2006년생과 2007년생이 지원 대상이다."
+   },
+   {
+    "id": "S4",
+    "text": "이번 추가 발급부터는 지원분야를 기존 공연·전시·영화에 이어 도서까지 확대해 다양한 문화예술을 경험할 수 있게 했다."
+   },
+   {
+    "id": "S5",
+    "text": "올해 '청년문화예술패스'는 상반기 발급 기간에 26만 5000여 명이 발급받았다."
+   },
+   {
+    "id": "S6",
+    "text": "이용자 대상 설문조사에서 89.2%가 '청년문화예술패스가 향후 문화생활에 도움이 될 것'이라고 응답해 이 사업이 청년의 문화 향유 취향을 형성해 가는 계기가 되고 있음을 보여줬다."
+   },
+   {
+    "id": "S7",
+    "text": "이번 '청년문화예술패스' 추가 발급은 상반기 발급 이후 전액 미사용으로 회수된 지원금을 활용해 추진한다."
+   },
+   {
+    "id": "S8",
+    "text": "신청 당시 행안부 주민등록상 거주지를 기준으로 수도권 거주 청년에게는 15만 원, 비수도권 거주 청년에게는 20만 원을 지원한다."
+   },
+   {
+    "id": "S9",
+    "text": "상반기에 '청년문화예술패스'를 발급받은 뒤 지난달 31일까지 지원금을 한 번도 사용하지 않아 지원금 전액이 회수된 사람은 이번 추가 발급 대상에서 제외한다."
+   },
+   {
+    "id": "S10",
+    "text": "지원금은 12월 31일까지 9개 협력판매처에서 공연·전시·영화를 예매하거나 도서를 구매할 때 사용할 수 있다."
+   },
+   {
+    "id": "S11",
+    "text": "공연·전시 예매는 티켓링크, 멜론티켓, 예스(YES)24 티켓, 놀(NOL) 티켓에서 ▲영화 예매는 메가박스, 씨지브이(CGV), 롯데시네마에서 ▲도서 구매는 서점온(ON), 예스(YES)24 도서에서 할 수 있다."
+   },
+   {
+    "id": "S12",
+    "text": "명수현 문체부 문화정책관은 \"'청년문화예술패스'는 청년의 목소리로 계속 다듬어가는 제도\"라며 \"이번에 확대하는 도서 분야 이용과 관련해서도 정책 수혜자인 청년과 현장의 의견을 수렴해 개선하겠다\"고 말했다."
+   }
+  ],
+  "groups": [
+   {
+    "id": "G1",
+    "title": "청년문화예술패스 개요",
+    "sids": [
+     "S1",
+     "S3",
+     "S4",
+     "S5"
+    ]
+   },
+   {
+    "id": "G2",
+    "title": "추가 발급 신청과 대상",
+    "sids": [
+     "S2",
+     "S7",
+     "S9"
+    ]
+   },
+   {
+    "id": "G3",
+    "title": "지원금 지급 금액",
+    "sids": [
+     "S8"
+    ]
+   },
+   {
+    "id": "G4",
+    "title": "지원금 사용처",
+    "sids": [
+     "S10",
+     "S11"
+    ]
+   },
+   {
+    "id": "G5",
+    "title": "이용 효과와 향후 개선",
+    "sids": [
+     "S6",
+     "S12"
+    ]
+   }
+  ],
+  "cards": [
+   {
+    "id": "C1",
+    "layout": "cover",
+    "sids": [
+     "S1",
+     "S4"
+    ],
+    "image_query": "young people festival crowd",
+    "title": "하반기 추가 발급\n도서 구입도 지원",
+    "category": "청년문화예술패스",
+    "image": {
+     "stage": "unsplash",
+     "query": "young people festival crowd",
+     "id": "nPz8akkUmDI",
+     "data": "/samples/artpass-C1.jpg",
+     "alt": "excited crowd cheering at concert or event",
+     "author": "Nicholas Green",
+     "author_url": "https://unsplash.com/@nickxshotz?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/excited-crowd-cheering-at-concert-or-event-nPz8akkUmDI?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C2",
+    "layout": "body",
+    "sids": [
+     "S1",
+     "S3"
+    ],
+    "image_query": "young people city street",
+    "title": "2006·2007년생이 대상이에요",
+    "body": "19~20세 청년을 위한 사업으로, 올해 하반기에는 2006년생과 2007년생을 대상으로 추가 발급합니다.",
+    "image": {
+     "stage": "unsplash",
+     "query": "young people city street",
+     "id": "IJrIeCs3D4g",
+     "data": "/samples/artpass-C2.jpg",
+     "alt": "selective focus of man smiling near building",
+     "author": "Yingchou Han",
+     "author_url": "https://unsplash.com/@hyingchou?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/selective-focus-of-man-smiling-near-building-IJrIeCs3D4g?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C3",
+    "layout": "body",
+    "sids": [
+     "S4"
+    ],
+    "image_query": "bookstore shelves books",
+    "title": "지원 분야에 도서가 추가됐어요",
+    "body": "기존 공연·전시·영화에 이어 도서 구입까지 지원 분야가 확대됐습니다.",
+    "image": {
+     "stage": "unsplash",
+     "query": "bookstore shelves books",
+     "id": "57I496odF5c",
+     "data": "/samples/artpass-C3.jpg",
+     "alt": "a bookshelf filled with lots of books next to a window",
+     "author": "Mohammadreza Charkhgard",
+     "author_url": "https://unsplash.com/@mrcharkhgard?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/a-bookshelf-filled-with-lots-of-books-next-to-a-window-57I496odF5c?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    },
+    "repair": {
+     "fields": {
+      "title": "이번 추가 발급부터 도서도 지원돼요",
+      "body": "이번 추가 발급부터는 지원 분야를 기존 공연·전시·영화에 이어 도서까지 확대해 다양한 문화예술을 경험할 수 있게 했어요."
+     },
+     "check": {
+      "card_id": "C3",
+      "verdict": "ok",
+      "summary": "이번 추가 발급부터 지원 분야에 도서가 추가되었다는 내용이 근거 원문과 같은 의미로 전달되었고, 조건이나 수치 변경은 없다.",
+      "issues": []
+     },
+     "lint": []
+    }
+   },
+   {
+    "id": "C4",
+    "layout": "body",
+    "sids": [
+     "S8"
+    ],
+    "image_query": "korean won banknotes",
+    "title": "지원금은 거주지에 따라 달라요",
+    "body": "신청 당시 행안부 주민등록상 거주지 기준으로 수도권 15만 원, 비수도권 20만 원을 지원합니다.",
+    "image": {
+     "stage": "unsplash",
+     "query": "korean won banknotes",
+     "id": "TFIXbQAv6ag",
+     "data": "/samples/artpass-C4.jpg",
+     "alt": "a picture of a korean currency bill",
+     "author": "minho jeong",
+     "author_url": "https://unsplash.com/@pushingho?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/a-picture-of-a-korean-currency-bill-TFIXbQAv6ag?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C5",
+    "layout": "checklist",
+    "sids": [
+     "S9",
+     "S10"
+    ],
+    "image_query": "checklist clipboard pen",
+    "title": "상반기 발급자 제외 대상",
+    "items": [
+     "지난달 31일까지 한 번도 안 써서 전액 회수된 사람 제외",
+     "지원금은 12월 31일까지 9개 협력판매처에서 사용"
+    ],
+    "image": {
+     "stage": "unsplash",
+     "query": "checklist clipboard pen",
+     "id": "yKnIbJV0RbY",
+     "data": "/samples/artpass-C5.jpg",
+     "alt": "A hand marks off items on a checklist",
+     "author": "Jakub Żerdzicki",
+     "author_url": "https://unsplash.com/@jakubzerdzicki?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/a-hand-marks-off-items-on-a-checklist-yKnIbJV0RbY?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C6",
+    "layout": "checklist",
+    "sids": [
+     "S11"
+    ],
+    "image_query": "concert stage lights",
+    "title": "사용처 안내",
+    "items": [
+     "공연·전시: 티켓링크, 멜론티켓, 예스24 티켓, 놀 티켓",
+     "영화: 메가박스, 씨지브이(CGV), 롯데시네마",
+     "도서: 서점온(ON), 예스24 도서"
+    ],
+    "image": {
+     "stage": "unsplash",
+     "query": "concert stage lights",
+     "id": "QOajY0MNp8Y",
+     "data": "/samples/artpass-C6.jpg",
+     "alt": "Bright teal and purple spotlights cutting through a dark hazy nightclub atmosphere",
+     "author": "Scarlett Alt",
+     "author_url": "https://unsplash.com/@scarlettalt?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/teal-and-purple-nightclub-spotlights-QOajY0MNp8Y?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   },
+   {
+    "id": "C7",
+    "layout": "closing",
+    "sids": [
+     "S2"
+    ],
+    "image_query": "online application form laptop",
+    "title": "11월 30일까지 신청",
+    "body": "신청은 공식 누리집(youthculturepass.or.kr)에서 받습니다.",
+    "cta": "공식 누리집에서 신청",
+    "image": {
+     "stage": "unsplash",
+     "query": "online application form laptop",
+     "id": "hBuwVLcYTnA",
+     "data": "/samples/artpass-C7.jpg",
+     "alt": "person using MacBook",
+     "author": "Christin Hume",
+     "author_url": "https://unsplash.com/@christinhumephoto?utm_source=cardsync_prototype&utm_medium=referral",
+     "photo_url": "https://unsplash.com/photos/person-using-macbook-hBuwVLcYTnA?utm_source=cardsync_prototype&utm_medium=referral",
+     "license": "Unsplash License"
+    }
+   }
+  ],
+  "checks": {
+   "C1": {
+    "card_id": "C1",
+    "verdict": "ok",
+    "summary": "하반기 추가 발급과 도서 구입 지원이라는 핵심 내용이 원문과 일치한다.",
+    "issues": []
+   },
+   "C2": {
+    "card_id": "C2",
+    "verdict": "ok",
+    "summary": "19~20세 대상 사업이며 올해 하반기에는 2006·2007년생을 대상으로 추가 발급한다는 내용이 원문과 일치한다.",
+    "issues": []
+   },
+   "C3": {
+    "card_id": "C3",
+    "verdict": "warn",
+    "summary": "도서 추가가 '이번 추가 발급부터' 적용된다는 적용 시점 조건이 빠져 상반기에도 도서가 포함된 것처럼 읽힐 수 있다.",
+    "issues": [
+     {
+      "type": "정보 누락",
+      "source_span": "이번 추가 발급부터는 지원분야를 기존 공연·전시·영화에 이어 도서까지 확대해",
+      "card_span": "지원 분야에 도서가 추가됐어요",
+      "explanation": "원문은 '이번 추가 발급부터' 확대된다고 한정하지만 카드는 시점 한정 없이 지원 분야가 추가됐다고 써서 적용 범위가 넓어 보인다.",
+      "source_found": true,
+      "card_found": true
+     }
+    ]
+   },
+   "C4": {
+    "card_id": "C4",
+    "verdict": "ok",
+    "summary": "신청 당시 주민등록상 거주지 기준으로 수도권 15만 원, 비수도권 20만 원이라는 수치와 기준이 원문과 일치한다.",
+    "issues": []
+   },
+   "C5": {
+    "card_id": "C5",
+    "verdict": "ok",
+    "summary": "상반기 발급자 중 지난달 31일까지 미사용으로 전액 회수된 사람 제외, 12월 31일까지 9개 협력판매처 사용이라는 조건이 원문과 일치한다.",
+    "issues": []
+   },
+   "C6": {
+    "card_id": "C6",
+    "verdict": "ok",
+    "summary": "공연·전시, 영화, 도서별 사용처 목록이 원문과 일치한다.",
+    "issues": []
+   },
+   "C7": {
+    "card_id": "C7",
+    "verdict": "ok",
+    "summary": "11월 30일까지 공식 누리집에서 신청한다는 기간과 방법이 원문과 일치한다.",
+    "issues": []
+   }
+  }
+ }
+]

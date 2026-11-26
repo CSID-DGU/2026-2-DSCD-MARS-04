@@ -1,0 +1,31 @@
+# 시각 평가 결과 형식 오프라인 연결 확인 (API 호출 없음)
+# 저장된 판정 JSON을 돌려주고, 판정 형식(항목 누락·카드 ID·verdict 값)만 코드로 검사한다.
+# 판정 내용이 맞는지는 검사하지 않는다. 실제 비전 평가기는 아직 연결하지 않았다.
+description: 카드뉴스 시각 평가 결과 형식 — offline smoke (fixture)
+
+prompts:
+  - "{{case_id}}"
+
+providers:
+  - id: file://providers/replay.py
+    label: visual_judge_fixture
+    config:
+      fixture: visual_judgments.json
+      system: visual_judge_fixture
+
+defaultTest:
+  vars:
+    card_ids: '["C1", "C2"]'
+    criteria: '["hierarchy", "image_contribution", "set_consistency"]'
+  assert:
+    - type: python
+      value: file://assertions/visual_judgment.py:valid_visual_judgment
+      metric: valid_visual_judgment
+
+tests:
+  - description: 계약을 지킨 판정
+    vars:
+      case_id: smoke_visual_valid
+  - description: 없는 카드 ID·허용 안 된 verdict·항목 누락 (실패해야 정상)
+    vars:
+      case_id: smoke_visual_broken

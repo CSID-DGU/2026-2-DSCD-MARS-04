@@ -1,0 +1,45 @@
+{
+  "_note": "평가 결과 형식 확인용 손으로 만든 판정. 실제 비전 모델 판정이 아니며 디자인 품질 점수가 아니다.",
+  "visual_judge_fixture": {
+    "smoke_visual_valid": {
+      "judgments": [
+        {
+          "criterion_id": "hierarchy",
+          "scope": "card",
+          "card_ids": ["C1"],
+          "verdict": "MET",
+          "evidence": "제목 글자가 본문보다 크고 위쪽에 있다",
+          "reason": "핵심 메시지를 먼저 읽을 수 있다"
+        },
+        {
+          "criterion_id": "image_contribution",
+          "scope": "card",
+          "card_ids": ["C2"],
+          "verdict": "NOT_APPLICABLE",
+          "evidence": "",
+          "reason": "사진이 없는 체크리스트 카드"
+        },
+        {
+          "criterion_id": "set_consistency",
+          "scope": "set",
+          "card_ids": ["C1", "C2"],
+          "verdict": "UNCERTAIN",
+          "evidence": "두 카드의 배경색이 다르다",
+          "reason": "색 변화가 내용 구분 의도인지 판단하기 어렵다"
+        }
+      ]
+    },
+    "smoke_visual_broken": {
+      "judgments": [
+        {
+          "criterion_id": "hierarchy",
+          "scope": "card",
+          "card_ids": ["C9"],
+          "verdict": "GOOD",
+          "evidence": "",
+          "reason": ""
+        }
+      ]
+    }
+  }
+}
