@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { useEffect, useRef, useState } from 'react'
 import { SourceContext } from './components/card/SourceContext'
 import { sourceLabel } from './components/card/util'
 import Loading from './components/common/Loading'
+import { signIn, supabase } from './lib/supabase'
 import { STEP_NAMES, useWorkflow, type Step } from './hooks/useWorkflow'
 import CheckView from './views/CheckView'
 import DownloadView from './views/DownloadView'
@@ -15,11 +17,38 @@ import './styles/app.css'
 export default function App() {
   const wf = useWorkflow()
   const [landing, setLanding] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
+  const [expired, setExpired] = useState(false)
+  const loggingOut = useRef(false)
+  const authOn = !!supabase && wf.mode === 'http'
+  const needLogin = authOn && !session
 
   useEffect(() => {
-    document.body.classList.toggle('on-landing', landing)
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      if (event === 'SIGNED_IN') setExpired(false)
+      if (event === 'SIGNED_OUT') {
+        setExpired(!loggingOut.current)
+        loggingOut.current = false
+      }
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  const start = () => (needLogin ? void signIn() : setLanding(false))
+  const logout = () => {
+    loggingOut.current = true
+    void supabase?.auth.signOut()
+  }
+
+  // 세션이 끊기면(로그아웃·401) 작업 화면 대신 랜딩을 보여준다
+  const onLanding = landing || needLogin
+  useEffect(() => {
+    document.body.classList.toggle('on-landing', onLanding)
     window.scrollTo(0, 0)
-  }, [landing])
+  }, [onLanding])
 
   // Alt+Shift+F: 검사 실패 상태 시연 (데모 기능)
   useEffect(() => {
@@ -54,9 +83,24 @@ export default function App() {
           <img src="/logo.svg" alt="" />
           CardSync
         </a>
-        {wf.mode === 'mock' ? <span className="small muted">샘플 데이터</span> : null}
+        <div className="header-actions">
+          {wf.mode === 'mock' ? <span className="small muted">샘플 데이터</span> : null}
+          {expired && needLogin ? <span className="small error">로그인이 만료됐어요. 다시 로그인해 주세요.</span> : null}
+          {authOn && session ? (
+            <>
+              <span className="small muted">{session.user.user_metadata.name ?? session.user.email}</span>
+              <button className="header-cta" onClick={logout}>
+                로그아웃
+              </button>
+            </>
+          ) : authOn ? (
+            <button className="header-cta" onClick={() => void signIn()}>
+              구글로 로그인
+            </button>
+          ) : null}
+        </div>
       </header>
-      <Landing onStart={() => setLanding(false)} />
+      <Landing onStart={start} />
       <nav className="steps" id="steps" aria-label="제작 단계">
         {STEP_NAMES.map((name, i) => (
           <button key={name} disabled={i > wf.maxStep || !!wf.busy} className={wf.step === i ? 'active' : ''} aria-current={wf.step === i ? 'step' : undefined} onClick={() => wf.go(i as Step)}>
