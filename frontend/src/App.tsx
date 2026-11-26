@@ -16,7 +16,8 @@ import './styles/app.css'
 
 export default function App() {
   const wf = useWorkflow()
-  const [landing, setLanding] = useState(true)
+  // 구글 로그인에서 돌아오면 ?start=1 이 붙어 있어 바로 작업 화면을 연다
+  const [landing, setLanding] = useState(() => !new URLSearchParams(window.location.search).has('start'))
   const [session, setSession] = useState<Session | null>(null)
   const [expired, setExpired] = useState(false)
   const loggingOut = useRef(false)
@@ -25,7 +26,11 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      // Supabase가 주소의 로그인 정보를 읽은 뒤에 표시용 파라미터를 지운다
+      if (window.location.search) window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+    })
     const { data } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
       if (event === 'SIGNED_IN') setExpired(false)
