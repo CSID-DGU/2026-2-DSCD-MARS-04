@@ -710,3 +710,18 @@ def test_supabase_token_verification(monkeypatch):
         with pytest.raises(ApiError) as err:
             check(**bad)
         assert err.value.code == 401
+
+
+def test_dev_user_only_with_local_db(monkeypatch):
+    from backend.core import auth
+    from backend.core.responses import ApiError
+
+    monkeypatch.setenv("CARDSYNC_DEV_USER", "local-dev")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@127.0.0.1:5432/cardsync_dev")
+    assert auth.current_user(None) == "local-dev"
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://u:p@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
+    )
+    with pytest.raises(ApiError) as err:
+        auth.current_user(None)
+    assert err.value.code == 401
