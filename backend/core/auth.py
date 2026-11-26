@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from functools import cache
 from typing import Annotated
+from urllib.parse import urlparse
 
 import jwt
 from fastapi import Depends
@@ -22,11 +23,21 @@ def _issuer() -> str:
     return os.environ["SUPABASE_URL"].rstrip("/") + "/auth/v1"
 
 
+def _dev_user() -> str | None:
+    user = os.getenv("CARDSYNC_DEV_USER")
+    # 운영 DB에 실수로 켜지지 않게, 내 PC의 DB를 쓸 때만 로그인 없이 통과시킨다
+    if user and urlparse(os.getenv("DATABASE_URL", "")).hostname in ("localhost", "127.0.0.1"):
+        return user
+    return None
+
+
 def current_user(
     cred: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> str:
     """Supabase 액세스 토큰을 검증하고 user_id(sub)를 돌려준다."""
     if cred is None:
+        if dev := _dev_user():
+            return dev
         raise ApiError(401, "로그인이 필요합니다.")
     token = cred.credentials
     try:
