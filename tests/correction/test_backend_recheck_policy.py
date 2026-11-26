@@ -2,7 +2,6 @@ import pytest
 
 from ai.correction.policy import AI_REPAIR
 from backend.core.responses import ApiError
-from backend.core.store import Store
 from backend.services import workflow as wf
 
 
@@ -27,11 +26,16 @@ class CheckPipeline:
         }
 
 
-def make_store():
-    store = Store(":memory:")
+@pytest.fixture
+def make_store(store):
+    return lambda: _seed(store)
+
+
+def _seed(store):
     store.save_document(
         {
             "document_id": "doc-1",
+            "user_id": "user-1",
             "status": "generated",
             "required_group_ids": ["G1"],
             "groups": [{"group_id": "G1", "summary": "요약"}],
@@ -90,7 +94,7 @@ def edit(store, *, source="manual", version=None):
     )
 
 
-def test_initial_check_does_not_use_recheck_count():
+def test_initial_check_does_not_use_recheck_count(make_store):
     card = run_card_check(make_store())
 
     assert card["ai_recheck_count"] == 0
@@ -98,7 +102,7 @@ def test_initial_check_does_not_use_recheck_count():
     assert card["pending_edit_source"] is None
 
 
-def test_ai_recheck_is_limited_to_two_successful_checks():
+def test_ai_recheck_is_limited_to_two_successful_checks(make_store):
     store = make_store()
     run_card_check(store)
 
@@ -111,7 +115,7 @@ def test_ai_recheck_is_limited_to_two_successful_checks():
         edit(store, source=AI_REPAIR)
 
 
-def test_manual_final_check_is_allowed_once_separately():
+def test_manual_final_check_is_allowed_once_separately(make_store):
     store = make_store()
     run_card_check(store)
 
@@ -125,7 +129,7 @@ def test_manual_final_check_is_allowed_once_separately():
         wf.start_check(store, "doc-1", ["C1"])
 
 
-def test_failed_ai_recheck_does_not_increase_count():
+def test_failed_ai_recheck_does_not_increase_count(make_store):
     store = make_store()
     run_card_check(store)
     edit(store, source=AI_REPAIR)
