@@ -6,6 +6,12 @@ import pytest
 from backend.core.store import Store
 
 
+@pytest.fixture(autouse=True)
+def _no_dev_user(monkeypatch):
+    # 개발자 .env 의 로그인 건너뛰기 설정이 인증 테스트를 통과시키지 않게 한다
+    monkeypatch.delenv("CARDSYNC_DEV_USER", raising=False)
+
+
 @pytest.fixture
 def store():
     url = os.environ.get("TEST_DATABASE_URL")
