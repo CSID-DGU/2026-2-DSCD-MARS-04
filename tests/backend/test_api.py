@@ -1,17 +1,22 @@
 """백엔드 API 테스트. LLM은 가짜 파이프라인으로 대체해 API 키 없이 돈다."""
 
 import json
+import os
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.core.auth import current_user
 from backend.core.store import Store
 from backend.main import BASE, create_app
 from backend.services.pipeline import RepoPipeline
 from data_pipeline.schemas.card import CardGeneration
 
+TEST_USER = "00000000-0000-0000-0000-000000000001"
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "savings.json").read_text("utf-8"))
 TEXT = " ".join(s["text"] for s in FIXTURE["sentences"])
 
@@ -126,10 +131,11 @@ class FakePipeline:
 
 
 @pytest.fixture
-def make_client():
+def make_client(store):
     def _make(pipeline=None):
         pipeline = pipeline or FakePipeline()
-        app = create_app(store=Store(":memory:"), pipeline=pipeline)
+        app = create_app(store=store, pipeline=pipeline)
+        app.dependency_overrides[current_user] = lambda: TEST_USER
         return TestClient(app), pipeline
 
     return _make
@@ -636,3 +642,86 @@ def test_missing_completeness_attaches_to_group_cards():
     assert [c["fact_id"] for c in check["completeness"]] == ["G4:summary"]
     assert check["completeness"][0]["type"] == "필수 정보 누락"
     assert check["verdict"] == "warn"
+
+
+def test_restart_fails_unfinished_jobs(store):
+    store.save_document({"document_id": "d1", "user_id": "u1"})
+    store.save_job({"job_id": "j1", "document_id": "d1", "status": "running", "stage": "cards"})
+    restarted = Store(os.environ["TEST_DATABASE_URL"])
+    job = restarted.get_job("j1", "u1")
+    restarted.close()
+    assert job["status"] == "failed"
+    assert job["error"] == {"type": "ServerRestarted", "stage": "cards"}
+    assert store.get_job("j1", "someone-else") is None
+
+
+def test_login_required_except_health(store):
+    client = TestClient(create_app(store=store, pipeline=FakePipeline()))
+    assert client.get(f"{BASE}/health").status_code == 200
+    for method, path in [
+        ("post", f"{BASE}/documents"),
+        ("get", f"{BASE}/documents/doc_x"),
+        ("get", f"{BASE}/jobs/job_x"),
+        ("get", f"{BASE}/layouts"),
+    ]:
+        res = client.request(method, path, json={"text": TEXT})
+        assert res.status_code == 401
+        assert res.json() == {"code": 401, "message": "로그인이 필요합니다."}
+
+
+def test_other_users_document_is_404(make_client):
+    client, _ = make_client()
+    doc_id = generated(client)
+    job_id = client.post(f"{BASE}/documents", json={"text": TEXT}).json()["data"]["job_id"]
+    client.app.dependency_overrides[current_user] = lambda: "someone-else"
+    for method, path in [
+        ("get", f"{BASE}/documents/{doc_id}"),
+        ("get", f"{BASE}/documents/{doc_id}/cards"),
+        ("put", f"{BASE}/documents/{doc_id}/selection"),
+        ("patch", f"{BASE}/documents/{doc_id}/cards/C1"),
+        ("post", f"{BASE}/documents/{doc_id}/checks"),
+        ("get", f"{BASE}/documents/{doc_id}/record"),
+        ("get", f"{BASE}/jobs/{job_id}"),
+    ]:
+        res = client.request(method, path, json={"required_group_ids": ["G1"]})
+        assert res.status_code == 404, (method, path)
+
+
+def test_supabase_token_verification(monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    from backend.core import auth
+    from backend.core.responses import ApiError
+
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    key = ec.generate_private_key(ec.SECP256R1())
+    jwks = SimpleNamespace(get_signing_key_from_jwt=lambda _: SimpleNamespace(key=key.public_key()))
+    monkeypatch.setattr(auth, "_jwks", lambda: jwks)
+    claims = {"sub": "u1", "aud": "authenticated", "iss": "https://example.supabase.co/auth/v1"}
+
+    def check(**override):
+        payload = {**claims, "exp": int(time.time()) + 60, **override}
+        token = jwt.encode(payload, key, algorithm="ES256")
+        return auth.current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+
+    assert check() == "u1"
+    for bad in ({"aud": "anon"}, {"iss": "https://evil.example/auth/v1"}, {"exp": 0}):
+        with pytest.raises(ApiError) as err:
+            check(**bad)
+        assert err.value.code == 401
+
+
+def test_dev_user_only_with_local_db(monkeypatch):
+    from backend.core import auth
+    from backend.core.responses import ApiError
+
+    monkeypatch.setenv("CARDSYNC_DEV_USER", "local-dev")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@127.0.0.1:5432/cardsync_dev")
+    assert auth.current_user(None) == "local-dev"
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://u:p@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
+    )
+    with pytest.raises(ApiError) as err:
+        auth.current_user(None)
+    assert err.value.code == 401

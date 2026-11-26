@@ -3,10 +3,6 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
-    environment:
-      CARDSYNC_DB_PATH: /data/cardsync.db
-    volumes:
-      - cardsync-data:/data
 
   caddy:
     image: caddy:2
@@ -22,5 +18,4 @@ services:
       - caddy-data:/data
 
 volumes:
-  cardsync-data:
   caddy-data:

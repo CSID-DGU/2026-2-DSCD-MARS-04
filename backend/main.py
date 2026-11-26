@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from backend.core.auth import UserDep
 from backend.core.logging import RequestLogMiddleware, configure_logging
 from backend.core.responses import ApiError, api_error_handler, ok, validation_error_handler
 from backend.core.store import Store
@@ -28,9 +29,7 @@ BASE = "/api/v1"
 
 def create_app(store: Store | None = None, pipeline: Pipeline | None = None) -> FastAPI:
     app = FastAPI(title="CardSync API", version="0.1.0", docs_url="/docs")
-    app.state.store = store or Store(
-        os.getenv("CARDSYNC_DB_PATH", str(ROOT / "data" / "outputs" / "cardsync.db"))
-    )
+    app.state.store = store or Store(os.environ["DATABASE_URL"])
     app.state.pipeline = pipeline or RepoPipeline()
     app.state.layouts = json.loads(LAYOUTS_PATH.read_text(encoding="utf-8"))
     app.add_exception_handler(ApiError, api_error_handler)
@@ -58,6 +57,16 @@ StoreDep = Annotated[Store, Depends(store_of)]
 PipelineDep = Annotated[Pipeline, Depends(pipeline_of)]
 
 
+def owned_document(document_id: str, store: StoreDep, user: UserDep) -> None:
+    """남의 문서는 있는지조차 알리지 않으려고 없는 문서와 같은 404를 준다."""
+    doc = store.get_document(document_id)
+    if doc is None or doc.get("user_id") != user:
+        raise ApiError(404, "존재하지 않는 문서입니다.")
+
+
+Owned = [Depends(owned_document)]
+
+
 class DocumentIn(BaseModel):
     text: str
     title: str | None = None
@@ -83,7 +92,7 @@ def register(app: FastAPI) -> None:
         )
 
     @app.get(f"{BASE}/layouts", tags=["Layout"], summary="레이아웃 정의 조회")
-    def layouts(request: Request):
+    def layouts(request: Request, _: UserDep):
         return ok("레이아웃 정의를 조회했습니다.", request.app.state.layouts)
 
     @app.post(
@@ -94,8 +103,9 @@ def register(app: FastAPI) -> None:
         tasks: BackgroundTasks,
         store: StoreDep,
         pipeline: PipelineDep,
+        user: UserDep,
     ):
-        doc, job = wf.create_document(store, body.model_dump())
+        doc, job = wf.create_document(store, body.model_dump(), user)
         tasks.add_task(
             wf.run_job, store, job, wf.analysis_work(store, pipeline, doc["document_id"])
         )
@@ -103,8 +113,8 @@ def register(app: FastAPI) -> None:
         return ok("원문 분석을 시작했습니다.", data, 202)
 
     @app.get(f"{BASE}/jobs/{{job_id}}", tags=["Job"], summary="작업 상태 조회")
-    def get_job(job_id: str, store: StoreDep):
-        job = store.get_job(job_id)
+    def get_job(job_id: str, store: StoreDep, user: UserDep):
+        job = store.get_job(job_id, user)
         if job is None:
             raise ApiError(404, "존재하지 않는 작업입니다.")
         keys = ("job_id", "kind", "status", "stage", "document_id", "error", "elapsed_seconds")
@@ -114,13 +124,19 @@ def register(app: FastAPI) -> None:
             {k: job[k] for k in keys} | {"request_id": job.get("request_id"), "stages": stages},
         )
 
-    @app.get(f"{BASE}/documents/{{document_id}}", tags=["Document"], summary="원문·정보 묶음 조회")
+    @app.get(
+        f"{BASE}/documents/{{document_id}}",
+        dependencies=Owned,
+        tags=["Document"],
+        summary="원문·정보 묶음 조회",
+    )
     def get_document(document_id: str, store: StoreDep):
         doc = wf.require_document(store, document_id, analyzed=True)
         return ok("문서를 조회했습니다.", wf.doc_view(doc))
 
     @app.put(
         f"{BASE}/documents/{{document_id}}/selection",
+        dependencies=Owned,
         tags=["Selection"],
         summary="카드에 담을 정보 묶음 저장",
     )
@@ -130,6 +146,7 @@ def register(app: FastAPI) -> None:
 
     @app.post(
         f"{BASE}/documents/{{document_id}}/cards",
+        dependencies=Owned,
         tags=["Card"],
         summary="카드뉴스 생성 시작",
         status_code=202,
@@ -146,7 +163,12 @@ def register(app: FastAPI) -> None:
         data = {"document_id": document_id, "job_id": job["job_id"], "status": "generating"}
         return ok("카드 생성을 시작했습니다.", data, 202)
 
-    @app.get(f"{BASE}/documents/{{document_id}}/cards", tags=["Card"], summary="카드 목록 조회")
+    @app.get(
+        f"{BASE}/documents/{{document_id}}/cards",
+        dependencies=Owned,
+        tags=["Card"],
+        summary="카드 목록 조회",
+    )
     def list_cards(document_id: str, store: StoreDep):
         wf.require_document(store, document_id)
         cards = [wf.card_view(store, c) for c in store.list_cards(document_id)]
@@ -154,6 +176,7 @@ def register(app: FastAPI) -> None:
 
     @app.patch(
         f"{BASE}/documents/{{document_id}}/cards/{{card_id}}",
+        dependencies=Owned,
         tags=["Card"],
         summary="카드 문구 수정",
     )
@@ -169,6 +192,7 @@ def register(app: FastAPI) -> None:
 
     @app.post(
         f"{BASE}/documents/{{document_id}}/checks",
+        dependencies=Owned,
         tags=["Check"],
         summary="카드 사실성 검사 시작",
         status_code=202,
@@ -188,6 +212,7 @@ def register(app: FastAPI) -> None:
 
     @app.post(
         f"{BASE}/documents/{{document_id}}/cards/{{card_id}}/repair",
+        dependencies=Owned,
         tags=["Check"],
         summary="AI 수정안 조회",
     )
@@ -204,7 +229,10 @@ def register(app: FastAPI) -> None:
         )
 
     @app.get(
-        f"{BASE}/documents/{{document_id}}/record", tags=["Export"], summary="검수 기록 내보내기"
+        f"{BASE}/documents/{{document_id}}/record",
+        dependencies=Owned,
+        tags=["Export"],
+        summary="검수 기록 내보내기",
     )
     def record(document_id: str, store: StoreDep):
         response = ok("검수 기록을 만들었습니다.", wf.build_record(store, document_id))
@@ -214,6 +242,7 @@ def register(app: FastAPI) -> None:
 
     @app.get(
         f"{BASE}/documents/{{document_id}}/cards/{{card_id}}/png",
+        dependencies=Owned,
         tags=["Export"],
         summary="카드 PNG 내보내기 (준비 중)",
     )
@@ -223,7 +252,7 @@ def register(app: FastAPI) -> None:
 
 
 class _LazyApp:
-    """import만으로 DB 파일이 생기지 않게 첫 요청 때 앱을 만든다."""
+    """import만으로 DB에 접속하지 않게 첫 요청 때 앱을 만든다."""
 
     _app: FastAPI | None = None
 

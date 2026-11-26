@@ -1,4 +1,5 @@
 /** FastAPI 백엔드(/api/v1) 클라이언트. 응답 형식은 {code, message, data}. */
+import { supabase } from '../lib/supabase'
 import type { Card, CardFields, Document, ExportRecord, Job } from '../types/domain'
 import { ApiError, type CardSyncApi, type DocumentIn, type SourceOption, type StartedJob } from './types'
 
@@ -35,17 +36,27 @@ export function createHttpApi(base: string): CardSyncApi {
   const root = `${base.replace(/\/$/, '')}/api/v1`
 
   async function call<T>(path: string, init?: RequestInit): Promise<T> {
+    const token = (await supabase?.auth.getSession())?.data.session?.access_token
     let res: Response
     try {
       // 본문이 있을 때만 JSON 헤더를 붙인다. GET에 붙이면 매 요청 CORS 사전 요청(OPTIONS)이 생긴다
       res = await fetch(root + path, {
         ...init,
-        headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(init?.headers ?? {}) },
+        headers: {
+          ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(init?.headers ?? {}),
+        },
       })
     } catch {
       throw new ApiError(0, '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.')
     }
     const body = (await res.json().catch(() => ({}))) as Envelope<T>
+    if (res.status === 401) {
+      // 로컬 세션만 지운다. App 이 SIGNED_OUT 을 받아 랜딩으로 보내고 재로그인을 안내한다
+      await supabase?.auth.signOut({ scope: 'local' })
+      throw new ApiError(401, '로그인이 만료됐어요. 다시 로그인해 주세요.')
+    }
     if (!res.ok) throw new ApiError(res.status, body.message ?? `요청 실패 (${res.status})`)
     return body.data as T
   }
