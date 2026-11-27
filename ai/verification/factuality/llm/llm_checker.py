@@ -18,7 +18,7 @@ from data_pipeline.schemas.group import Group, Sentence
 
 load_dotenv()
 
-DEFAULT_MODEL = "gpt-6-luna"
+DEFAULT_MODEL = "gpt-6-sol"
 
 VerificationStatus = Literal[
     "SUPPORTED",
